@@ -2,7 +2,7 @@
 
 	<Import Project="../../common.props" />
 	<PropertyGroup>
-		<TargetFramework>$(TargetFramework)</TargetFramework>
+		<TargetFrameworks>$(TargetFrameworks)</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<Version>$(Version)</Version>

@@ -1,22 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>net10.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Mapster" Version="7.4.0" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Mapster" Version="7.4.0" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\CQRS.Application.Contracts\CQRS.Application.Contracts.csproj" />
-    <ProjectReference Include="..\CQRS.Domain\CQRS.Domain.csproj" />
-    <ProjectReference Include="..\..\..\src\Cike.Cqrs\Cike.Cqrs.csproj" />
-    <ProjectReference Include="..\..\..\src\Cike.EventBus.Local\Cike.EventBus.Local.csproj" />
-    <ProjectReference Include="..\..\..\src\Cike.FluentValidation\Cike.FluentValidation.csproj" />
-    <ProjectReference Include="..\..\..\src\Cike.Data.EFCore\Cike.Data.EFCore.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\CQRS.Application.Contracts\CQRS.Application.Contracts.csproj" />
+		<ProjectReference Include="..\CQRS.Domain\CQRS.Domain.csproj" />
+		<ProjectReference Include="..\..\..\src\Cike.Cqrs\Cike.Cqrs.csproj" />
+		<ProjectReference Include="..\..\..\src\Cike.EventBus.Local\Cike.EventBus.Local.csproj" />
+		<ProjectReference Include="..\..\..\src\Cike.FluentValidation\Cike.FluentValidation.csproj" />
+		<ProjectReference Include="..\..\..\src\Cike.Data.EFCore\Cike.Data.EFCore.csproj" />
+	</ItemGroup>
 
 </Project>

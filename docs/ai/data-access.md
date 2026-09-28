@@ -211,8 +211,7 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 | `Task<TEntity> GetAsync(TKey id, CancellationToken ct = default)` | 未找到抛 `UserFriendlyException($"Id {id} is NotFound.")` |
 | `Task<TEntity?> FindAsync(TKey id, CancellationToken ct = default)` | 未找到返回 `null` |
 | `Task<List<TEntity>> GetListAsync(CancellationToken ct = default)` | 全量列表 |
-| `Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)` | 条件列表 |
-| `Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, string sorting = "Id asc", CancellationToken ct = default)` | 条件列表 + 排序（`sorting` 是 System.Linq.Dynamic.Core 字符串，如 `"Name"` / `"Name desc"`；缺省 `"Id asc"`） |
+| `Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, string sorting = "Id asc", CancellationToken ct = default)` | 条件列表 + 排序（`sorting` 是 System.Linq.Dynamic.Core 字符串，如 `"Name"` / `"Name desc"`；缺省 `"Id asc"`。注意：没有 `(predicate, ct)` 二参重载——传取消令牌需写全 `GetListAsync(pred, "Id asc", ct)`，避免与 `sorting` 参数冲突） |
 | `Task<(long Total, List<TEntity> Items)> GetPagedListAsync(IPagedAndSortedRequest request, Expression<Func<TEntity, bool>>? predicate = null, CancellationToken ct = default)` | 分页 + 排序（`Sorting` 是 System.Linq.Dynamic.Core 字符串，如 `"Name"` / `"Name desc"`；先 Count 后排序分页） |
 | `Task<List<TEntity>> ToListAsync(IQueryable<TEntity> query, CancellationToken ct = default)` | 提交自定义 IQueryable 取列表——所有 `GetListAsync` 重载内部统一走它（可重写出口） |
 | `Task<(long Total, List<TEntity> Items)> ToPagedListAsync(IQueryable<TEntity> query, IPagedAndSortedRequest request, CancellationToken ct = default)` | 提交自定义 IQueryable 分页（内部 `ToPaginationAsync`）——`GetPagedListAsync` 内部统一走它（可重写出口） |

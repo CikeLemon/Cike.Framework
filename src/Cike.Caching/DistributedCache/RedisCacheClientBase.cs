@@ -116,20 +116,13 @@ public abstract class RedisCacheClientBase : DistributedCacheClientBase
         => GetListCoreByKeyPattern(keyPattern, (script, parameters) => Db.ScriptEvaluate(LuaScript.Prepare(script), parameters)
             .ToDictionary());
 
-    internal async Task<List<DataCacheModel>> GetListByKeyPatternAsync(string keyPattern)
-    {
-        var prepared = LuaScript.Prepare(RedisConstant.GET_KEY_AND_VALUE_SCRIPT);
-        var arrayRedisResult = (RedisResult[])await Db.ScriptEvaluateAsync(prepared, new { keypattern = keyPattern }).ConfigureAwait(false);
-        var dict = arrayRedisResult.ToDictionary();
-
-        List<DataCacheModel> list = new List<DataCacheModel>();
-        foreach (var redisResult in dict)
-        {
-            var byteArray = (RedisValue[])redisResult.Value;
-            list.Add(MapMetadataByAutomatic(redisResult.Key, byteArray));
-        }
-        return list;
-    }
+    internal Task<List<DataCacheModel>> GetListByKeyPatternAsync(string keyPattern)
+        => Task.FromResult(GetListCoreByKeyPattern(keyPattern, (script, parameters) => Db
+            .ScriptEvaluateAsync(LuaScript.Prepare(script), parameters)
+            .ConfigureAwait(false)
+            .GetAwaiter()
+            .GetResult()
+            .ToDictionary()));
 
     private List<DataCacheModel> GetListCoreByKeyPattern(
         string keyPattern,

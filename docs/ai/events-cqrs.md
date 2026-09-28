@@ -62,10 +62,10 @@ HTTP 端点方法（Service 层）
 | 类型 / 成员 | 签名与说明 |
 |---|---|
 | `IEvent` | 事件契约：`string GetEventId()` / `SetEventId(string)` / `DateTime GetCreationTime()` / `SetCreationTime(DateTime)` |
-| `Event` | 抽象 record 基类：构造时自动生成事件 Id（Guid 字符串）与创建时间（`DateTime.Now`，本地时间非 UTC）；`virtual bool IsBackgroundThread()` / `virtual void EnableBackgroundThread()` |
+| `Event` | 抽象 record 基类：构造时自动生成事件 Id（Guid 字符串）与创建时间（`DateTime.Now`，本地时间非 UTC）；`virtual bool IsBackgroundThread()` / `virtual void EnableBackgroundThread()`；实现 `IBackgroundEvent` |
 | `Event<TResult>` | 带结果的事件：`TResult? Result { get; set; }` 由 handler 赋值、调用方读取 |
 | `IEvent<TResult>` | `Event<TResult>` 的契约（含 `Result`） |
-| `IBackgroundEvent` | 后台事件标记接口：`bool IsBackgroundThread()` / `void EnableBackgroundThread()`。**进入后台通道的判定条件是实现此接口**（见 Local 章节陷阱） |
+| `IBackgroundEvent` | 后台事件标记接口：`bool IsBackgroundThread()` / `void EnableBackgroundThread()`。**进入后台通道的判定条件是实现此接口**——`Event` 基类已实现它，所有 `Event` 派生事件均满足；实际开关是 `IsBackgroundThread()`（见 Local 章节陷阱） |
 | `IEventBus` | `Task PublishAsync<TEvent>(TEvent @event, CancellationToken ct = default) where TEvent : IEvent` |
 | `IQueueEventBus : IEventBus` | 领域事件队列：`Task EnqueueAsync<TEvent>(TEvent @event)` / `Task PublishQueueAsync()` / `Task<bool> AnyQueueAsync()`（实现在 Adaptive 包） |
 | `CikeEventBusModule` | 模块类，无逻辑、无依赖 |
@@ -97,7 +97,7 @@ var stock = evt.Result;             // 直接读取（可能为 null，见边界
 
 ### 边界与反模式
 
-- **`IBackgroundEvent` 是名义接口**：`Event` 基类的 `IsBackgroundThread()`/`EnableBackgroundThread()` 方法签名恰好满足该接口，但基类**并不实现**它——是否进入后台通道取决于事件类型是否显式声明 `: IBackgroundEvent`，详见 Local 章节的关键陷阱。
+- **`IBackgroundEvent` 与 `Event` 基类**：`Event` 基类已实现 `IBackgroundEvent`，所有 `Event` 派生事件都通过 `is IBackgroundEvent` 检查——是否进后台通道只取决于 `IsBackgroundThread()` 返回值（默认 `false` = 同步执行；调用 `EnableBackgroundThread()` 后 = 后台 Channel）。旧版框架基类不实现该接口、要求事件类型显式声明，升级时注意：过去调用了 `EnableBackgroundThread()` 却因未声明接口而静默同步执行的事件，现在会真正进后台通道，详见 Local 章节的关键陷阱。
 - 事件创建时间是 `DateTime.Now`（服务器本地时间），不是 UTC——对时间敏感的逻辑不要直接依赖 `GetCreationTime()`。
 - 不要在本包找 `PublishAsync` 的行为定义（静默忽略、事务等）——那是 Local 包的事。
 
@@ -115,7 +115,7 @@ var stock = evt.Result;             // 直接读取（可能为 null，见边界
 | `LocalEventBus` | 实现，`IScopedDependency`；路由规则：`is IBackgroundEvent && IsBackgroundThread()` → 写 Channel，否则同步执行 |
 | `[LocalEventHandler]` | 标注在任意非抽象类的 public 实例方法上即注册为 handler。参数见下表 |
 | `LocalEvent` | 空标记 record（`: Event`），无附加成员、无路由含义——业务事件可继承它或直接 `Event` |
-| `BackgroundEvent` | 抽象 record（`: LocalEvent`），构造时调用 `EnableBackgroundThread()`。**注意：它不实现 `IBackgroundEvent`**（陷阱见下） |
+| `BackgroundEvent` | 抽象 record（`: LocalEvent`），构造时调用 `EnableBackgroundThread()`；经由 `Event` 基类实现 `IBackgroundEvent`——继承它即默认路由到后台 Channel |
 | `ILocalEventMiddleware<TEvent>` | 中间件契约：`Task HandleAsync(TEvent @event, EventHandlerDelegate next)`（`delegate Task EventHandlerDelegate()`）+ `MiddlewareExecutionPolicy ExecutionPolicy` |
 | 内置中间件 ×3 | `DbTransactionLocalEventMiddleware`（事务）/ `ExceptionLocalEventMiddleware`（状态跟踪）/ `PreventRecursiveMiddleware`（重置发布计数），均 `OncePerTree`、Transient |
 | `ILocalEventContext` | Scoped 状态上下文：`Counter` / `Status`（`ExecutorStatusEnum`）/ `Exception` / `Reset()` |
@@ -285,7 +285,7 @@ context.Services.Configure<LocalEventBusOptions>(options =>
 
 ### 边界与反模式
 
-1. **【关键】后台路由陷阱**：`PublishAsync` 的路由条件是 `is IBackgroundEvent && IsBackgroundThread()`。`Event` / `LocalEvent` / `BackgroundEvent` 基类都**不实现 `IBackgroundEvent`** → 仅继承 `BackgroundEvent` 或仅调用 `EnableBackgroundThread()` 都不会进后台，而是**静默走同步**。必须写 `: BackgroundEvent, IBackgroundEvent`（或 `: LocalEvent, IBackgroundEvent` + 构造时 `EnableBackgroundThread()`）。
+1. **【关键】后台路由规则**：`PublishAsync` 的路由条件是 `is IBackgroundEvent && IsBackgroundThread()`。`Event` / `LocalEvent` / `BackgroundEvent` 基类都已实现 `IBackgroundEvent`（继承自 `Event`）→ 是否进后台只看 `IsBackgroundThread()`：继承 `BackgroundEvent`（构造即启用）或调用 `EnableBackgroundThread()` 都会进后台通道，两者都不做则同步执行。升级注意：旧版要求事件类型显式声明 `: IBackgroundEvent` 才生效，新版只调用 `EnableBackgroundThread()` 也会进后台——依赖旧行为（声明接口前静默同步）的业务需自查。
 2. **静默忽略**：无 handler 的事件（忘标 `[LocalEventHandler]`、handler 参数写成基类型、事件类型改名）发布后无声无息。"发布没反应"时按这三点排查。
 3. **不要依赖"提交失败自动补偿"**：`ExceptionLocalEventMiddleware` 的"已 Succeed 后异常 → 全量取消"分支依赖 `Status = Succeed`，但当前源码没有任何地方设置它（死代码）；且该中间件位于 DbTransaction 中间件**内层**，`CommitAsync` 的异常根本不会流经它——双重不可达。需要补偿语义时用 `FailureLevel = ThrowAndCancel` + `IsCancel` handler 在 handler 执行期完成。
 4. **旧版包陷阱**：`FailureLevel` 默认值修正前的旧版 `Cike.EventBus.Local`，未显式设置 `FailureLevel` 且事件带取消 handler 时，失败补偿路径抛 `NotImplementedException`（`ComputeCancelList` 的 switch 落入 `_ => throw`）。引用旧版包时必须显式设置 `FailureLevel`。

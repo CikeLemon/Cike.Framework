@@ -106,7 +106,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 | 10 | 业务异常转 400 | 抛 `UserFriendlyException`/`BusinessException` → 中间件返回 BadRequest + 消息文本 | HTTP 接口层 |
 | 11 | long → string JSON | 所有 HTTP 响应中 `long`/`long?` 序列化为字符串（防前端精度丢失） | HTTP 接口层 |
 | 12 | 乐观并发戳刷新 | 实体实现 `IHasConcurrencyStamp`，修改时自动刷新 ConcurrencyStamp | 数据访问 |
-| 13 | 后台事件 | 事件**显式实现 `IBackgroundEvent`**（仅继承 `BackgroundEvent` 不生效，会静默走同步）→ Channel + 独立 Scope 并发消费，异常仅记日志、无事务、不通知发布方 | 事件与 CQRS |
+| 13 | 后台事件 | 事件开启后台模式即生效：继承 `BackgroundEvent` 或调用 `EnableBackgroundThread()`（`Event` 基类已实现 `IBackgroundEvent`，实际开关是 `IsBackgroundThread()`，默认同步）→ Channel + 独立 Scope 并发消费，异常仅记日志、无事务、不通知发布方 | 事件与 CQRS |
 | 14 | Saga 补偿 | `[LocalEventHandler(IsCancel = true)]`：handler 失败（重试耗尽、非 Ignore）时按 Order **升序**执行 `Order ≤ 失败步骤`（Throw 为 `≤ Order-1`）的取消 handler，然后抛出原异常 | 事件与 CQRS |
 | 15 | Validator 自动注册 | 依赖 `CikeFluentValidationModule`：全部已加载模块程序集的 `AbstractValidator<T>` 自动注册 | HTTP 接口层 |
 | 16 | 缓存 key 格式化 | 默认 `TypeName` 模式：实际 key = `{类型简单名}.{key}`（如 `User.42`，不含命名空间）；L2 Redis 端为 GZip 压缩的 Hash，redis-cli 不可直读 | 缓存 |

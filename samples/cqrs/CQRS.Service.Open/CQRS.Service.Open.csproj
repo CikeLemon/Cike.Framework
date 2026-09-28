@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>net10.0</TargetFrameworks>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\CQRS.Application\CQRS.Application.csproj" />
-    <ProjectReference Include="..\CQRS.EntityFrameworkCore\CQRS.EntityFrameworkCore.csproj" />
-    <ProjectReference Include="..\..\..\src\Cike.AspNetCore.MinimalAPIs\Cike.AspNetCore.MinimalAPIs.csproj" />
-    <ProjectReference Include="..\..\..\src\Cike.AspNetCore.Swagger\Cike.AspNetCore.Swagger.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\CQRS.Application\CQRS.Application.csproj" />
+		<ProjectReference Include="..\CQRS.EntityFrameworkCore\CQRS.EntityFrameworkCore.csproj" />
+		<ProjectReference Include="..\..\..\src\Cike.AspNetCore.MinimalAPIs\Cike.AspNetCore.MinimalAPIs.csproj" />
+		<ProjectReference Include="..\..\..\src\Cike.AspNetCore.Swagger\Cike.AspNetCore.Swagger.csproj" />
+	</ItemGroup>
 
 </Project>

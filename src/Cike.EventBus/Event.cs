@@ -1,6 +1,6 @@
 ﻿namespace Cike.EventBus;
 
-public abstract record Event : IEvent
+public abstract record Event : IEvent, IBackgroundEvent
 {
     private string _id;
     public DateTime _createTime;

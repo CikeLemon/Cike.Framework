@@ -25,7 +25,7 @@ public class EFCoreUnitOfWork<TDbContext>(IServiceProvider _serviceProvider) : I
 
     public IsolationLevel? IsolationLevel { get; set; }
 
-    public DbTransaction DbTransaction
+    public IDbTransaction DbTransaction
     {
         get
         {

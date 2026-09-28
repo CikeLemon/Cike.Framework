@@ -38,11 +38,6 @@ public class EfCoreRepository<TDbContext, TEntity, TKey>(TDbContext dbContext) :
         return await ToListAsync(GetQueryable(), cancellationToken);
     }
 
-    public virtual async Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
-    {
-        return await ToListAsync(GetQueryable().Where(predicate), cancellationToken);
-    }
-
     public virtual async Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, string sorting = "Id asc", CancellationToken cancellationToken = default)
     {
         return await ToListAsync(GetQueryable().Where(predicate).OrderBy(sorting), cancellationToken);

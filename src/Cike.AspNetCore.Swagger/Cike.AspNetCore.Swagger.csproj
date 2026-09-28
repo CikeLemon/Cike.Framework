@@ -2,10 +2,12 @@
 	<Import Project="../../common.props" />
 
 	<PropertyGroup>
-		<TargetFramework>$(TargetFramework)</TargetFramework>
+		<TargetFrameworks>$(TargetFrameworks)</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<Version>$(Version)</Version>
+		<!-- 类库不生成 OpenAPI 文档：ApiDescription.Server 6.0.5 对多目标项目会默认开启并在外层构建报"无入口点" -->
+		<OpenApiGenerateDocuments>false</OpenApiGenerateDocuments>
 	</PropertyGroup>
 
 	<ItemGroup>
