@@ -425,7 +425,8 @@ public record CreateOrderCommand(CreateOrderDto Dto) : Command { public long Id 
 
 // Orders/Queries/GetOrderListQuery.cs
 // Query：handler 给 Result 赋值
-public record GetOrderListQuery(string? Keyword, int Page, int PageSize) : Query<PagedResultDto<OrderDto>>;
+// 分页列表 Query：携带继承 PagedAndSortedResultRequest 的筛选 Dto（Page/PageSize/Sorting/筛选一体），不要平铺 Page/PageSize
+public record GetOrderListQuery(GetOrderListDto Input) : Query<PagedResultDto<OrderDto>>;
 
 // ── Application 层 ──
 public class OrderCommandHandler(IRepository<Order, long> orderRepository)
@@ -447,7 +448,10 @@ public class OrderQueryHandler(IReadOnlyRepository<Order, long> orderRepository)
     {
         using (orderRepository.BeginAsNoTracking())  // 查询侧纪律：只读仓储 + 关跟踪
         {
-            query.Result = await orderRepository.GetPagedListAsync(/* ... */);
+            // Input 继承 PagedAndSortedResultRequest，直接作分页请求，筛选字段写在 Dto 里
+            var (total, items) = await orderRepository.GetPagedListAsync(query.Input, /* 谓词 */ null, ct);
+            // 读侧映射用 Mapster：按名字自动匹配（基类继承的 Id/审计字段也自动带上）
+            query.Result = new PagedResultDto<OrderDto>(total, items.Select(o => o.Adapt<OrderDto>()).ToList());
         }
     }
 }
@@ -479,3 +483,5 @@ public class OrderService(ILocalEventBus? unused = null) : MinimalApiServiceBase
 6. 命令参数校验发生在 HTTP 层（`[AutoValidation]` + FluentValidation 校验 Dto，见[HTTP 接口层](./http-api.md)）——Command 对象本身不自动校验。
 7. **Command/Query/业务事件定义放 Application 层**，与 Handler 同层、一类型一文件（如 `Orders/Commands/CreateOrderCommand.cs`）；`Application.Contracts` 只放 Dto。契约层的价值是"可安全外发的数据形状"，用例消息与内部事件不是对外契约。
 8. **实体创建统一走静态工厂 `Create(...)`**——收原生类型/值对象，不把 Dto 传进领域层（Domain 不引用 Contracts）；本地不变量在工厂内断言，跨聚合查重（如编码唯一）在 Handler 先 `AnyAsync` 再调工厂。setter 封装程度与 Mapster 写侧映射**看项目取舍，不强制完整 DDD**（见[实体设计约定](./data-access.md)）；Mapster 读侧实体→Dto 投影无争议。
+9. **读侧（实体→Dto）映射用 Mapster，不要手写 `MapToDto`**——`entity.Adapt<XxxDto>()` 按名字自动匹配，继承基类带来的 Id/审计字段也自动映射；非平凡映射（字段名不一致、值对象拆解、计算字段）在 Application 模块 `ConfigureServicesAsync` 注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`（示例见 CQRS sample 的 `Money→decimal`）。手写逐字段映射是样板代码且新增字段必漂移。
+10. **分页列表 Query 不要把 Page/PageSize 平铺成位置参数**——Query 携带一个继承 `PagedAndSortedResultRequest` 的筛选 Dto（`GetOrderListQuery(GetOrderListDto Input)`，见[Dto 编写约定](./framework-core.md)），Handler 把它直接传 `GetPagedListAsync` / `ToPaginationAsync`，不要再手搓 `new PagedAndSortedResultRequest { Page = ..., PageSize = ..., Sorting = "Id asc" }`；`Sorting` 来自前端时必须白名单校验（Dynamic LINQ 注入面，见[框架内核](./framework-core.md)反模式）。

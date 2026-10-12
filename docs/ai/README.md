@@ -122,6 +122,8 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 - 命令侧 Handler 注入 `IRepository`，查询侧注入 `IReadOnlyRepository`（编译期隔离读写）
 - 实体创建统一走静态工厂 `Create(...)`（收原生类型/值对象，本地不变量在工厂内断言，跨聚合查重在 Handler 先查再调工厂）；setter 封装与 Mapster 写侧映射看项目取舍，不强制完整 DDD（见 [数据访问](./data-access.md) 实体设计约定）
 - 查询只读场景用 `repository.BeginAsNoTracking()` 包裹，复杂查询走 `GetQueryable()` / `WithDetailsAsync()`
+- 读侧（实体→Dto）映射用 Mapster：`entity.Adapt<TDto>()`（基类继承的 Id/审计字段按名字自动带上）；非平凡映射在 Application 模块注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`，不要手写逐字段 `MapToDto`
+- 分页列表 Query 携带继承 `PagedAndSortedResultRequest` 的筛选 Dto（`GetXxxListQuery(GetXxxListDto Input)`），Handler 直接把 Input 传 `GetPagedListAsync`/`ToPaginationAsync`——不要把 Page/PageSize 平铺成 Query 位置参数、再在 Handler 手搓分页请求
 - 动态组合 `Expression<Func<T, bool>>` 查询条件用 `ExpressionExtensions.And/Or/Not`（`using Cike.Core.Extensions.Expressions;`，参数自动重绑定），不要手写 ExpressionVisitor
 - 仓储 `GetListAsync` / `GetPagedListAsync` 内部统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储重写这两个出口即可影响全部列表/分页查询
 - `autoSave` 默认 true 立即保存；配合工作单元统一提交时传 false
