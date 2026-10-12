@@ -4,13 +4,13 @@ namespace CQRS.Domain.ValueObjects;
 
 public class Address : ValueObject
 {
-    public string Province { get; private set; } = default!;
+    public string Province { get; protected set; } = default!;
 
-    public string City { get; private set; } = default!;
+    public string City { get; protected set; } = default!;
 
-    public string Street { get; private set; } = default!;
+    public string Street { get; protected set; } = default!;
 
-    public string ZipCode { get; private set; } = default!;
+    public string ZipCode { get; protected set; } = default!;
 
     private Address()
     {

@@ -13,7 +13,7 @@ public class BuyerEventHandler(IRepository<Buyer, long> buyerRepository)
         var buyer = await buyerRepository.FindAsync(@event.BuyerId, cancellationToken);
         if (buyer == null)
         {
-            buyer = new Buyer(@event.BuyerId, $"Buyer-{@event.BuyerId}");
+            buyer = Buyer.Create(@event.BuyerId, $"Buyer-{@event.BuyerId}");
             buyer.RecordPlaced(@event.TotalAmount);
             await buyerRepository.InsertAsync(buyer, cancellationToken: cancellationToken);
         }

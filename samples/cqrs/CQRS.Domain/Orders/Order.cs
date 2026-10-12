@@ -7,23 +7,23 @@ namespace CQRS.Domain.Orders;
 
 public class Order : FullAuditedAggregateRoot<long>
 {
-    public string OrderNo { get; private set; } = default!;
+    public string OrderNo { get; protected set; } = default!;
 
-    public long BuyerId { get; private set; }
+    public long BuyerId { get; protected set; }
 
-    public OrderStatus Status { get; private set; } = OrderStatus.Pending;
+    public OrderStatus Status { get; protected set; } = OrderStatus.Pending;
 
-    public Address Address { get; private set; } = default!;
+    public Address Address { get; protected set; } = default!;
 
-    public decimal TotalAmount { get; private set; }
+    public decimal TotalAmount { get; protected set; }
 
-    public List<OrderLine> Lines { get; private set; } = new();
+    public List<OrderLine> Lines { get; protected set; } = new();
 
     private Order()
     {
     }
 
-    public static Order Place(long buyerId, Address address, IEnumerable<OrderLine> lines)
+    public static Order Create(long buyerId, Address address, IEnumerable<OrderLine> lines)
     {
         var lineList = lines?.ToList() ?? [];
         if (lineList.Count == 0) throw new UserFriendlyException("Order must have at least one line.");

@@ -242,6 +242,15 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 - `CikeDomainModule` 无任何服务配置；继承基类即隐式实现全部契约接口，自动获得 Cike.Data 契约表中的所有自动化（Id / 审计 / 软删 / 租户 / 并发戳 / 领域事件入队，由 EF Core 层的 ChangeTracker 钩子执行）。
 - 仓储接口不依赖任何 ORM（`IQueryable` 属 System.Linq）——EF Core 实现由 `AddCikeDbContext` 注册（见 [Cike.Data.EFCore](#cikedataefcore)）。
 
+### 实体设计约定
+
+基线约定：**创建走静态工厂 `Create(...)`**——收原生类型/值对象（Domain 不引用 Application.Contracts，不把 Dto 传进领域层），本地不变量（非空、取值范围、格式）在工厂内断言；跨聚合查重（如"编码唯一"）需要仓储查询，不在工厂里做——命令 Handler 先 `AnyAsync` 查重、再调工厂。
+
+其余封装程度**看项目取舍，不强制完整 DDD**：
+
+- setter 封装上限 `protected`：有状态机/复杂不变量的聚合可收到 `protected set` + 意图方法（`order.Cancel()`，状态迁移合法性与领域事件内聚）；简单 CRUD 实体保留 public setter 直接赋值即可。
+- Mapster 写侧映射（`dto.Adapt<Entity>()`）由项目决定：简单 CRUD 项目可用，省样板，但反射按名字约定匹配，字段改名时编译器不报错、静默丢数据，不变量需在 Validator/Handler 补；强领域模型项目走工厂。读侧投影（实体→Dto）用 Mapster 无争议。
+
 ### 示例
 
 ```csharp
@@ -252,12 +261,12 @@ using Cike.Data.Domain.Entities;        // FullAuditedAggregateRoot（注意命�
 public class Order : FullAuditedAggregateRoot<long>, IMultiTenant
 {
     public long TenantId { get; set; }               // IMultiTenant 契约：自动填充 + 过滤
-    public string OrderNo { get; private set; } = default!;
-    public OrderStatus Status { get; private set; }  // 审计四字段、IsDeleted、ConcurrencyStamp、DomainEvents 全部来自基类
+    public string OrderNo { get; protected set; } = default!;
+    public OrderStatus Status { get; protected set; }  // 审计四字段、IsDeleted、ConcurrencyStamp、DomainEvents 全部来自基类
 
     private Order() { }
 
-    public static Order Place(string orderNo)
+    public static Order Create(string orderNo)
     {
         var order = new Order { OrderNo = orderNo };
         order.AddDomainEvent(new OrderPlacedEvent(orderNo));  // SaveChanges 时入队，UoW 提交前发布
@@ -279,8 +288,8 @@ using Core.Plugin.Ddd.Domain;
 
 public class Address : ValueObject
 {
-    public string Province { get; private set; } = default!;
-    public string City { get; private set; } = default!;
+    public string Province { get; protected set; } = default!;
+    public string City { get; protected set; } = default!;
 
     protected override IEnumerable<object> GetEqualityComponents()
     {

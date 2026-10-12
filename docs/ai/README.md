@@ -119,6 +119,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 
 - 服务注册一律走标记接口 / `[Dependency]`，让框架机制发现你的类
 - 命令侧 Handler 注入 `IRepository`，查询侧注入 `IReadOnlyRepository`（编译期隔离读写）
+- 实体创建统一走静态工厂 `Create(...)`（收原生类型/值对象，本地不变量在工厂内断言，跨聚合查重在 Handler 先查再调工厂）；setter 封装与 Mapster 写侧映射看项目取舍，不强制完整 DDD（见 [数据访问](./data-access.md) 实体设计约定）
 - 查询只读场景用 `repository.BeginAsNoTracking()` 包裹，复杂查询走 `GetQueryable()` / `WithDetailsAsync()`
 - 动态组合 `Expression<Func<T, bool>>` 查询条件用 `ExpressionExtensions.And/Or/Not`（`using Cike.Core.Extensions.Expressions;`，参数自动重绑定），不要手写 ExpressionVisitor
 - 仓储 `GetListAsync` / `GetPagedListAsync` 内部统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储重写这两个出口即可影响全部列表/分页查询
@@ -142,6 +143,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 12. 不要在 DTO 之外的地方把 HTTP 概念（`Results`、`[FromServices]` 等）引入 Application/Domain 层
 13. 多实例部署不要直接依赖默认雪花生成器注册——机器号硬编码为 1，会产出重复 Id（见 Id 生成文档）
 14. 不要把 Command、Query、业务事件定义放进 `Application.Contracts`——契约层只放 Dto；用例消息与 Handler 同在 Application 层，且一类型一文件
+15. 不要把实体构造逻辑散落在各 Handler 里——创建统一走静态工厂 `Entity.Create(...)`（收原生类型/值对象，不把 Dto 传进领域层）；setter 封装与 Mapster 写侧映射按项目复杂度取舍（见 [数据访问](./data-access.md) 实体设计约定）
 
 ## 6. 废弃与现状说明
 

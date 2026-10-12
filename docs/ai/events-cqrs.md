@@ -432,7 +432,8 @@ public class OrderCommandHandler(IRepository<Order, long> orderRepository)
     [LocalEventHandler]
     public async Task CreateAsync(CreateOrderCommand command, CancellationToken ct = default)
     {
-        var order = Order.Place(command.Dto);       // 聚合工厂
+        var dto = command.Dto;
+        var order = Order.Create(dto.BuyerId, ...); // 聚合工厂：收原生类型/值对象，不收 Dto——Domain 不引用 Contracts
         await orderRepository.InsertAsync(order, cancellationToken: ct);
         command.Id = order.Id;                      // 雪花 Id 在跟踪瞬间已生成，直接回传
     }
@@ -476,3 +477,4 @@ public class OrderService(ILocalEventBus? unused = null) : MinimalApiServiceBase
 5. `query.Result` 可能为 null（handler 未赋值或无 handler）——读取前判空。
 6. 命令参数校验发生在 HTTP 层（`[AutoValidation]` + FluentValidation 校验 Dto，见[HTTP 接口层](./http-api.md)）——Command 对象本身不自动校验。
 7. **Command/Query/业务事件定义放 Application 层**，与 Handler 同层、一类型一文件（如 `Orders/Commands/CreateOrderCommand.cs`）；`Application.Contracts` 只放 Dto。契约层的价值是"可安全外发的数据形状"，用例消息与内部事件不是对外契约。
+8. **实体创建统一走静态工厂 `Create(...)`**——收原生类型/值对象，不把 Dto 传进领域层（Domain 不引用 Contracts）；本地不变量在工厂内断言，跨聚合查重（如编码唯一）在 Handler 先 `AnyAsync` 再调工厂。setter 封装程度与 Mapster 写侧映射**看项目取舍，不强制完整 DDD**（见[实体设计约定](./data-access.md)）；Mapster 读侧实体→Dto 投影无争议。

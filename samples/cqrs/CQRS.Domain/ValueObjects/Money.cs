@@ -6,9 +6,9 @@ public class Money : ValueObject
 {
     public const string DefaultCurrency = "CNY";
 
-    public decimal Amount { get; private set; }
+    public decimal Amount { get; protected set; }
 
-    public string Currency { get; private set; } = DefaultCurrency;
+    public string Currency { get; protected set; } = DefaultCurrency;
 
     private Money()
     {

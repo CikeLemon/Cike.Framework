@@ -16,7 +16,7 @@ public class OrderCommandHandler(IRepository<Order, long> orderRepository)
         var address = new Address(dto.Address.Province, dto.Address.City, dto.Address.Street, dto.Address.ZipCode);
         var lines = dto.Lines.Select(l => new OrderLine(l.ProductName, l.Quantity, new Money(l.UnitPrice)));
 
-        var order = Order.Place(dto.BuyerId, address, lines);
+        var order = Order.Create(dto.BuyerId, address, lines);
         await orderRepository.InsertAsync(order, cancellationToken: cancellationToken);
 
         command.Id = order.Id;

@@ -5,13 +5,13 @@ namespace CQRS.Domain.Orders;
 
 public class OrderLine : Entity<long>
 {
-    public long OrderId { get; private set; }
+    public long OrderId { get; protected set; }
 
-    public string ProductName { get; private set; } = default!;
+    public string ProductName { get; protected set; } = default!;
 
-    public int Quantity { get; private set; }
+    public int Quantity { get; protected set; }
 
-    public Money UnitPrice { get; private set; } = default!;
+    public Money UnitPrice { get; protected set; } = default!;
 
     private OrderLine()
     {
