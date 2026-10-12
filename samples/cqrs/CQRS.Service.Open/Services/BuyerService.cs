@@ -1,6 +1,6 @@
 using Cike.AspNetCore.MinimalAPIs;
 using CQRS.Application.Contracts.Buyers.Dtos;
-using CQRS.Application.Contracts.Buyers.Queries;
+using CQRS.Application.Buyers.Queries;
 using Cike.EventBus.Local;
 using Microsoft.AspNetCore.Http.HttpResults;
 

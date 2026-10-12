@@ -1,5 +1,5 @@
 using CQRS.Application.Contracts.Buyers.Dtos;
-using CQRS.Application.Contracts.Buyers.Queries;
+using CQRS.Application.Buyers.Queries;
 using CQRS.Domain.Buyers;
 using Cike.Domain.Repositories;
 using Cike.EventBus.Local;

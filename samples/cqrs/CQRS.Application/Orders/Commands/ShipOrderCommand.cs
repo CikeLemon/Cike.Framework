@@ -1,5 +1,5 @@
 using Cike.Cqrs.Commands;
 
-namespace CQRS.Application.Contracts.Orders.Commands;
+namespace CQRS.Application.Orders.Commands;
 
 public record ShipOrderCommand(long OrderId) : Command;

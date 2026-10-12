@@ -1,8 +1,8 @@
 using Cike.AspNetCore.MinimalAPIs;
 using Cike.AspNetCore.MinimalAPIs.EndpointFilters;
-using CQRS.Application.Contracts.Orders.Commands;
+using CQRS.Application.Orders.Commands;
 using CQRS.Application.Contracts.Orders.Dtos;
-using CQRS.Application.Contracts.Orders.Queries;
+using CQRS.Application.Orders.Queries;
 using Cike.EventBus.Local;
 using Microsoft.AspNetCore.Http.HttpResults;
 

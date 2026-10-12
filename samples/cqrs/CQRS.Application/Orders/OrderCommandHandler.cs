@@ -1,4 +1,4 @@
-using CQRS.Application.Contracts.Orders.Commands;
+using CQRS.Application.Orders.Commands;
 using CQRS.Application.Contracts.Orders.Dtos;
 using CQRS.Domain.Orders;
 using CQRS.Domain.ValueObjects;

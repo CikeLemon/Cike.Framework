@@ -1,10 +1,10 @@
 global using Cike.Core.Exceptions;
 global using Cike.Core.Extensions;
 global using CQRS.Application.Contracts.Buyers.Dtos;
-global using CQRS.Application.Contracts.Buyers.Queries;
-global using CQRS.Application.Contracts.Orders.Commands;
+global using CQRS.Application.Buyers.Queries;
+global using CQRS.Application.Orders.Commands;
 global using CQRS.Application.Contracts.Orders.Dtos;
-global using CQRS.Application.Contracts.Orders.Queries;
+global using CQRS.Application.Orders.Queries;
 global using CQRS.Domain.Buyers;
 global using CQRS.Domain.Orders;
 global using CQRS.Domain.ValueObjects;

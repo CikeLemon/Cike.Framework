@@ -65,8 +65,8 @@ POST /api/v1/Orders
 |---|---|---|---|
 | `*.Domain.Shared` | 最稳定的领域概念 | 枚举、常量 | 实体类、业务逻辑 |
 | `*.Domain` | 领域层 | 聚合根/实体、子实体、值对象、领域事件 | EF Core 代码、Dto、HTTP 相关 |
-| `*.Application.Contracts` | 应用层契约 | Dto、Command、Query | 业务逻辑、Handler |
-| `*.Application` | 应用层 | `[LocalEventHandler]` 的命令/查询/领域事件 Handler、FluentValidation Validator | 实体类、DbContext、HTTP 相关 |
+| `*.Application.Contracts` | 应用层契约 | Dto | 业务逻辑、Command、Query、事件、Handler |
+| `*.Application` | 应用层 | Command、Query、业务事件/后台事件定义（与 Handler 同层），`[LocalEventHandler]` 的命令/查询/领域事件 Handler、FluentValidation Validator | 实体类、DbContext、HTTP 相关 |
 | `*.EntityFrameworkCore` | EF Core 实现 | DbContext、模块（`AddCikeDbContext`）、迁移 | 业务规则 |
 | `*.Service.Open` | HTTP 宿主 | Program.cs、启动模块、MinimalAPI 端点类、appsettings.json | 业务逻辑、实体 |
 | `*.Tests`（可选） | 测试 | xUnit 集成测试 | — |
@@ -78,14 +78,15 @@ Service.Open ──→ Application ──→ Application.Contracts ──→ Dom
     │                │    └──→ Domain ──→ Domain.Shared
     │                └──→ Cike.Cqrs / Cike.EventBus.Local / Cike.FluentValidation / Cike.Data.EFCore
     └──→ EntityFrameworkCore ──→ Domain + Cike.Data.EFCore + 方言包(MySql/SqlServer)
-Application.Contracts ──→ Cike.Contracts + Cike.Cqrs      // Command/Query 定义在契约层
+Application.Contracts ──→ Cike.Contracts                  // 契约层只有 Dto；Command/Query 定义在 Application 层（引用 Cike.Cqrs）
 Domain ──→ Cike.Data.Domain                                // 实体基类与仓储接口
 ```
 
 **命名规范**：
 - 每个项目一个模块类：`项目名去掉点 + Module`（如 `CQRSApplicationModule`），依赖用 `[DependsOn]` 声明
 - 每个项目一个 `_Imports.cs`，用 `global using` 集中管理公共引用
-- 业务按聚合根组织子目录：`Application/Orders/` 下有 `Commands/`、`Queries/`、`Validators/`、Handler 类
+- 业务按聚合根组织子目录：`Application/Orders/` 下有 `Commands/`、`Queries/`、`Validators/`、Handler 类；Command、Query 定义在 Application 层与 Handler 同层（如 `Orders/Commands/CreateOrderCommand.cs`），契约层只放 Dto（如 `Orders/Dtos/OrderDto.cs`）
+- **一类型一文件**：Command、Query、事件、Dto、Validator 均一个类型一个文件，不要按聚合合并成 `XxxCommands.cs` / `XxxDtos.cs` 的杂烩文件
 - 历史代码中存在 `CommandHanlder` 拼写错误（少个 d），新代码一律写 `Handler`
 
 ## 4. 全局隐式行为汇总
@@ -140,6 +141,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 11. 不要用后台事件实现需要"全成功或全回滚"的流程——后台事件无事务保障，异常不会通知发布方
 12. 不要在 DTO 之外的地方把 HTTP 概念（`Results`、`[FromServices]` 等）引入 Application/Domain 层
 13. 多实例部署不要直接依赖默认雪花生成器注册——机器号硬编码为 1，会产出重复 Id（见 Id 生成文档）
+14. 不要把 Command、Query、业务事件定义放进 `Application.Contracts`——契约层只放 Dto；用例消息与 Handler 同在 Application 层，且一类型一文件
 
 ## 6. 废弃与现状说明
 

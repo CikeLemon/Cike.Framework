@@ -180,7 +180,7 @@ var stock = evt.Result;             // 直接读取（可能为 null，见边界
 using Cike.EventBus.Local;
 using Cike.Data.Domain.Repositories;
 
-// 事件定义（Application.Contracts 层）
+// 事件定义（Application 层，与 Handler 同层；一事件一文件，如 Orders/Events/SubmitOrderEvent.cs）
 public record SubmitOrderEvent(long OrderId, long BuyerId, decimal Amount) : LocalEvent;
 
 public class OrderSagaHandlers(IRepository<Order, long> orderRepository)
@@ -218,6 +218,7 @@ public class OrderSagaHandlers(IRepository<Order, long> orderRepository)
 
 ```csharp
 // ✔ 正确：显式声明接口（Event 基类的虚方法恰好满足接口签名）
+// 事件定义放 Application 层、一事件一文件（如 Notifications/Events/SendWelcomeSmsEvent.cs）
 public record SendWelcomeSmsEvent(long BuyerId, string Phone) : BackgroundEvent, IBackgroundEvent;
 
 // ✗ 错误：仅继承 BackgroundEvent —— is IBackgroundEvent 判定为 false，静默走同步（见边界）
@@ -411,13 +412,17 @@ CQRS 用例基类。**没有独立 Dispatcher**——Command/Query 的派发、�
 using Cike.Cqrs;
 using Cike.Data.Domain.Repositories;
 
-// ── Application.Contracts 层 ──
+// ── Application.Contracts 层：只有 Dto ──
 public record CreateOrderDto(/* ... */);
 public record OrderDto(/* ... */);
 
+// ── Application 层：Command/Query 与 Handler 同层，一类型一文件 ──
+
+// Orders/Commands/CreateOrderCommand.cs
 // Command：回传数据用可写属性（record 位置参数是 init-only，不能用于回传！）
 public record CreateOrderCommand(CreateOrderDto Dto) : Command { public long Id { get; set; } }
 
+// Orders/Queries/GetOrderListQuery.cs
 // Query：handler 给 Result 赋值
 public record GetOrderListQuery(string? Keyword, int Page, int PageSize) : Query<PagedResultDto<OrderDto>>;
 
@@ -470,3 +475,4 @@ public class OrderService(ILocalEventBus? unused = null) : MinimalApiServiceBase
 4. **Query 不要进后台通道**——handler 异步执行时无人读 `Result`。
 5. `query.Result` 可能为 null（handler 未赋值或无 handler）——读取前判空。
 6. 命令参数校验发生在 HTTP 层（`[AutoValidation]` + FluentValidation 校验 Dto，见[HTTP 接口层](./http-api.md)）——Command 对象本身不自动校验。
+7. **Command/Query/业务事件定义放 Application 层**，与 Handler 同层、一类型一文件（如 `Orders/Commands/CreateOrderCommand.cs`）；`Application.Contracts` 只放 Dto。契约层的价值是"可安全外发的数据形状"，用例消息与内部事件不是对外契约。

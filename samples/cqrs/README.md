@@ -11,8 +11,8 @@
 ```
 CQRS.Domain.Shared        // 枚举等无依赖常量（OrderStatus）
 CQRS.Domain               // 聚合根 Order/Buyer、子实体 OrderLine、值对象 Address/Money、领域事件
-CQRS.Application.Contracts// DTO、Command、Query
-CQRS.Application          // [LocalEventHandler] 命令/查询/领域事件 handler、FluentValidation Validator
+CQRS.Application.Contracts// DTO（纯数据契约，一类型一文件）
+CQRS.Application          // Command、Query、业务事件定义（与 Handler 同层）+ [LocalEventHandler] handler、FluentValidation Validator
 CQRS.EntityFrameworkCore  // CqrsDbContext（OwnsOne 映射）、模块（UseSqlite + AddCikeDbContext）
 CQRS.Service.Open         // 宿主：模块组装、MinimalAPI 服务、Swagger、EnsureCreated
 CQRS.Tests                // xUnit：SQLite in-memory，经 ILocalEventBus 走与 API 等价的完整链路

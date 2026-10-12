@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 using CQRS.Application.Contracts.Orders.Dtos;
-using CQRS.Application.Contracts.Orders.Queries;
+using CQRS.Application.Orders.Queries;
 using CQRS.Domain.Orders;
 using Cike.Contracts.EntityDtos;
 using Cike.Contracts.Extensions;

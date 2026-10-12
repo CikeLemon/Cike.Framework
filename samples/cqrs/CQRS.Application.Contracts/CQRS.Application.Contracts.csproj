@@ -9,7 +9,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\CQRS.Domain.Shared\CQRS.Domain.Shared.csproj" />
 		<ProjectReference Include="..\..\..\src\Cike.Contracts\Cike.Contracts.csproj" />
-		<ProjectReference Include="..\..\..\src\Cike.Cqrs\Cike.Cqrs.csproj" />
 	</ItemGroup>
 
 </Project>
