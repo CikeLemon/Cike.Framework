@@ -289,6 +289,28 @@ DTO 基类（全部位于 `Cike.Contracts.EntityDtos`，纯 POCO，无任何方�
 | `EntityDto<TKey>` | — | `TKey Id { get; set; }` |
 | `AuditedEntityDto<TKey, TUserId>` | `: EntityDto<TKey>` | `DateTime CreatedAt`、`TUserId CreatedBy`、`DateTime UpdatedAt`、`TUserId UpdatedBy` |
 | `AuditedEntityDto<TKey>` | `: AuditedEntityDto<TKey, long>` | 同上，`TUserId` 固定 `long`（**这是常用形态**；需要 `Guid`/`string` 用户 Id 时用双泛型版本） |
+| `FullAuditedEntityDto<TKey, TUserId>` | `: AuditedEntityDto<TKey, TUserId>` | + `bool IsDeleted`（软删标记） |
+| `FullAuditedEntityDto<TKey>` | `: FullAuditedEntityDto<TKey, long>` | 同上，`TUserId` 固定 `long` |
+| `PagedAndSortedResultRequest` | `: IPagedAndSortedRequest`（接口定义在 `Cike.Data` 包：`int Page`、`int PageSize`、`string Sorting`） | `virtual int Page = 1`、`virtual int PageSize = 10`、`virtual string? Sorting = null`（System.Linq.Dynamic 语法，如 `"CreatedAt desc"`；多字段逗号分隔） |
+| `PagedResultDto<T>` | — | `long Total`、`List<T> Items = []`；构造 `PagedResultDto(long total, List<T> items)` |
+
+**Dto 编写约定**（按种类对号入座，不要自行发挥）：
+
+| Dto 种类 | 写法 | 示例 |
+|---|---|---|
+| 输出 Dto（详情/列表项，`XxxDto`） | 继承 **`AuditedEntityDto<TKey>`**（Id + 审计四字段，`TKey=long` 用单泛型版）——**默认选它，不是 FullAudited** | `public class AppSystemDto : AuditedEntityDto<long>` |
+| 输出 Dto 要携带软删标记（回收站/审计页） | 这时才用 `FullAuditedEntityDto<TKey>`（多 `IsDeleted`）；正常列表/详情**不外发** `IsDeleted` | `public class RecycledOrderDto : FullAuditedEntityDto<long>` |
+| 轻量输出（下拉/选项，`XxxBriefDto`/`XxxOptionDto`） | 继承 `EntityDto<TKey>`（只有 Id），再补展示字段 | `public class UserBriefDto : EntityDto<long>` |
+| 输入 Dto（`CreateXxxDto`/`UpdateXxxDto`/动作 Dto 如 `ResetXxxPasswordDto`） | **平铺，不继承任何基类**——字段是用户可填子集，与审计无关 | `public class CreateOrderDto` |
+| 嵌套子 Dto（挂在输入/输出 Dto 内部，如 `AddressDto`/`OrderLineDto`） | **平铺**，不继承（无独立审计语义） | `public class AddressDto` |
+| 分页请求（`GetXxxListDto`/`GetXxxRequest`） | 继承 `PagedAndSortedResultRequest`，只加筛选字段 | `public class GetOrderListDto : PagedAndSortedResultRequest` |
+| 分页返回 | `PagedResultDto<T>`（`Total` + `Items`），不自己造分页形状 | `PagedResultDto<OrderDto>` |
+
+| 类型 | 定义 | 字段 |
+|---|---|---|
+| `EntityDto<TKey>` | — | `TKey Id { get; set; }` |
+| `AuditedEntityDto<TKey, TUserId>` | `: EntityDto<TKey>` | `DateTime CreatedAt`、`TUserId CreatedBy`、`DateTime UpdatedAt`、`TUserId UpdatedBy` |
+| `AuditedEntityDto<TKey>` | `: AuditedEntityDto<TKey, long>` | 同上，`TUserId` 固定 `long`（**这是常用形态**；需要 `Guid`/`string` 用户 Id 时用双泛型版本） |
 | `FullAuditedEntityDto<TKey, TUserId>` | `: AuditedEntityDto<TKey, TUserId>` | + `bool IsDeleted`（软删标记，输出 Dto 携带） |
 | `FullAuditedEntityDto<TKey>` | `: FullAuditedEntityDto<TKey, long>` | 同上，`TUserId` 固定 `long` |
 | `PagedAndSortedResultRequest` | `: IPagedAndSortedRequest`（接口定义在 `Cike.Data` 包：`int Page`、`int PageSize`、`string Sorting`） | `virtual int Page = 1`、`virtual int PageSize = 10`、`virtual string? Sorting = null`（System.Linq.Dynamic 语法，如 `"CreatedAt desc"`；多字段逗号分隔） |
@@ -332,12 +354,15 @@ Dto 继承（自包含）：
 ```csharp
 using Cike.Contracts.EntityDtos;
 
-// 输出 Dto：带审计 + 软删信息
-public class OrderDto : FullAuditedEntityDto<long>   // Id/CreatedAt/CreatedBy/UpdatedAt/UpdatedBy/IsDeleted
+// 输出 Dto：默认继承 AuditedEntityDto（Id/CreatedAt/CreatedBy/UpdatedAt/UpdatedBy）
+public class OrderDto : AuditedEntityDto<long>
 {
     public string OrderNo { get; set; } = default!;
     public decimal Amount { get; set; }
 }
+
+// 确需向外暴露软删标记（回收站/审计页）才用 FullAuditedEntityDto（多 IsDeleted）
+public class RecycledOrderDto : FullAuditedEntityDto<long> { /* ... */ }
 
 // 只需要 Id 的轻量 Dto
 public class OrderBriefDto : EntityDto<long>

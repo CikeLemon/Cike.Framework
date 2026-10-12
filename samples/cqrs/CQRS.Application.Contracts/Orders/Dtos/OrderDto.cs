@@ -1,12 +1,11 @@
-using CQRS.Application.Contracts.Orders.Dtos;
+using Cike.Contracts.EntityDtos;
 using CQRS.Domain.Shared.Enums;
 
 namespace CQRS.Application.Contracts.Orders.Dtos;
 
-public class OrderDto
+// 输出 Dto 默认继承 AuditedEntityDto（Id + 审计字段）；输入 Dto（Create/Update）平铺
+public class OrderDto : AuditedEntityDto<long>
 {
-    public long Id { get; set; }
-
     public string OrderNo { get; set; } = default!;
 
     public long BuyerId { get; set; }
@@ -20,6 +19,4 @@ public class OrderDto
     public AddressDto Address { get; set; } = default!;
 
     public List<OrderLineDto> Lines { get; set; } = new();
-
-    public DateTime CreatedAt { get; set; }
 }

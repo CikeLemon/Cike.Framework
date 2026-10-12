@@ -1,9 +1,9 @@
+using Cike.Contracts.EntityDtos;
+
 namespace CQRS.Application.Contracts.Buyers.Dtos;
 
-public class BuyerDto
+public class BuyerDto : EntityDto<long>
 {
-    public long Id { get; set; }
-
     public string Name { get; set; } = default!;
 
     public int OrderCount { get; set; }

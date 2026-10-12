@@ -87,6 +87,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 - 每个项目一个 `_Imports.cs`，用 `global using` 集中管理公共引用
 - 业务按聚合根组织子目录：`Application/Orders/` 下有 `Commands/`、`Queries/`、`Validators/`、Handler 类；Command、Query 定义在 Application 层与 Handler 同层（如 `Orders/Commands/CreateOrderCommand.cs`），契约层只放 Dto（如 `Orders/Dtos/OrderDto.cs`）
 - **一类型一文件**：Command、Query、事件、Dto、Validator 均一个类型一个文件，不要按聚合合并成 `XxxCommands.cs` / `XxxDtos.cs` 的杂烩文件
+- **Dto 继承约定**（按种类对号入座，详见 [框架内核](./framework-core.md)）：输出 Dto 默认继承 `AuditedEntityDto<TKey>`（要外发软删标记才 `FullAuditedEntityDto<TKey>`，轻量选项 `EntityDto<TKey>`）；输入 Dto 与嵌套子 Dto 平铺；分页请求继承 `PagedAndSortedResultRequest`、返回 `PagedResultDto<T>`
 - 历史代码中存在 `CommandHanlder` 拼写错误（少个 d），新代码一律写 `Handler`
 
 ## 4. 全局隐式行为汇总

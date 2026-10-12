@@ -413,8 +413,9 @@ using Cike.Cqrs;
 using Cike.Data.Domain.Repositories;
 
 // ── Application.Contracts 层：只有 Dto ──
-public record CreateOrderDto(/* ... */);
-public record OrderDto(/* ... */);
+// 输出 Dto 继承 Cike.Contracts 基类（默认 AuditedEntityDto，按种类对号入座见框架内核）；输入 Dto（Create/Update）平铺
+public record CreateOrderDto(/* ... */);                                     // 输入：平铺
+public class OrderDto : AuditedEntityDto<long> { /* 业务字段 */ }             // 输出：继承基类
 
 // ── Application 层：Command/Query 与 Handler 同层，一类型一文件 ──
 
