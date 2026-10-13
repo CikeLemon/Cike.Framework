@@ -40,3 +40,9 @@ public class TenantOrder : FullAuditedAggregateRoot<long>, IMultiTenant
 
     public long TenantId { get; set; }
 }
+
+/// <summary>Guid 审计用户聚合根：验证审计用户 Id 为 Guid 型的软删改写路径。</summary>
+public class GuidOrder : FullAuditedAggregateRoot<Guid, Guid>
+{
+    public string Title { get; set; } = default!;
+}

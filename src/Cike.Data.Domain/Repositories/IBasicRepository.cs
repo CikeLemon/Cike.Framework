@@ -41,4 +41,17 @@ public interface IBasicRepository<TEntity, TKey> : IReadOnlyRepository<TEntity, 
     /// 批量删除。
     /// </summary>
     Task DeleteManyAsync(IEnumerable<TEntity> entities, bool autoSave = true, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 按条件批量删除（Set-based：一条 SQL 直接执行，不加载实体，立即生效）。
+    /// ISoftDelete 实体自动改写为软删除（IsDeleted=true + 更新审计 + 并发戳刷新），与其余删除方法语义一致。
+    /// 返回受影响行数（软删时即软删行数）。全局查询过滤器（软删、多租户）继续生效。
+    /// 不触发领域事件，不做行级并发校验。
+    /// </summary>
+    Task<int> ExecuteDeleteAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 批量删除（Set-based）的透传式重载：删除调用方自行组装的查询（含跨表 join / 子查询），语义同谓词式。
+    /// </summary>
+    Task<int> ExecuteDeleteAsync(IQueryable<TEntity> query, CancellationToken cancellationToken = default);
 }

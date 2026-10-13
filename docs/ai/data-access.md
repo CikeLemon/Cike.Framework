@@ -232,6 +232,8 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 | `Task DeleteAsync(TEntity entity, bool autoSave = true, CancellationToken ct = default)` | 删除（`ISoftDelete` 实体自动转软删） |
 | `Task DeleteAsync(TKey id, bool autoSave = true, CancellationToken ct = default)` | 按主键删除；不存在时静默返回（幂等） |
 | `Task DeleteManyAsync(IEnumerable<TEntity> entities, bool autoSave = true, CancellationToken ct = default)` | 批量删除 |
+| `Task<int> ExecuteDeleteAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)` | **Set-based 批量删除**：按条件一条 SQL 直接删，不加载实体，立即执行（无 `autoSave`）；返回受影响行数。`ISoftDelete` 实体自动改写为软删（`IsDeleted=true` + 更新审计 `UpdatedAt`/`UpdatedBy`；不刷并发戳，见隐式行为） |
+| `Task<int> ExecuteDeleteAsync(IQueryable<TEntity> query, CancellationToken ct = default)` | Set-based 批量删除透传式：删除自行组装的查询（含跨表 join / 子查询），语义同谓词式 |
 
 `IRepository` 无新成员，注入它即获得全部读写能力。
 
@@ -241,6 +243,7 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 
 - `CikeDomainModule` 无任何服务配置；继承基类即隐式实现全部契约接口，自动获得 Cike.Data 契约表中的所有自动化（Id / 审计 / 软删 / 租户 / 并发戳 / 领域事件入队，由 EF Core 层的 ChangeTracker 钩子执行）。
 - 仓储接口不依赖任何 ORM（`IQueryable` 属 System.Linq）——EF Core 实现由 `AddCikeDbContext` 注册（见 [Cike.Data.EFCore](#cikedataefcore)）。
+- Set-based 批量删除（`ExecuteDeleteAsync`）的隐式契约：全局过滤器（软删、多租户）继续生效；`ISoftDelete` 实体 DELETE 自动改写为软删 UPDATE（`IsDeleted=true` + 更新审计 `UpdatedAt`/`UpdatedBy`，用户 Id 解析与 tracked 路径同源）。**已知差异与例外**（绕过 ChangeTracker 的代价）：**不刷**并发戳——与 tracked 删除路径的差异点；不触发领域事件；不做行级乐观并发校验；EF 模型配置的客户端级联不触发（子表行删除取决于数据库端外键级联）。要事件/级联/并发防护的批量场景请用 tracked 批量方法（`DeleteManyAsync` 等）。
 
 ### 实体设计约定
 

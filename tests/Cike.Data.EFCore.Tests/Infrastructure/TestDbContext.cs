@@ -8,4 +8,5 @@ public class TestDbContext(DbContextOptions<TestDbContext> options, IServiceProv
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
     public DbSet<TenantOrder> TenantOrders => Set<TenantOrder>();
+    public DbSet<GuidOrder> GuidOrders => Set<GuidOrder>();
 }

@@ -143,6 +143,37 @@ public class EfCoreRepository<TDbContext, TEntity, TKey>(TDbContext dbContext) :
         await SaveChangesIfAsync(autoSave, cancellationToken);
     }
 
+    public virtual async Task<int> ExecuteDeleteAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return await ExecuteDeleteAsync(GetQueryable().Where(predicate), cancellationToken);
+    }
+
+    public virtual async Task<int> ExecuteDeleteAsync(IQueryable<TEntity> query, CancellationToken cancellationToken = default)
+    {
+        // ISoftDelete：DELETE 改写为软删 UPDATE（Set-based 不经 ChangeTracker，更新审计须在此显式写入）
+        if (typeof(ISoftDelete).IsAssignableFrom(typeof(TEntity)))
+        {
+            if (typeof(IAuditedEntity<Guid>).IsAssignableFrom(typeof(TEntity)))
+            {
+                var guidId = DbContext.EntityHelper.GetUpdateUserId<Guid>();
+                return await query.ExecuteUpdateAsync(e => e
+                    .SetProperty(p => (p as ISoftDelete)!.IsDeleted, true)
+                    .SetProperty(p => (p as IAuditedEntity<Guid>)!.UpdatedAt, DateTime.Now)
+                    .SetProperty(p => (p as IAuditedEntity<Guid>)!.UpdatedBy, guidId), cancellationToken);
+            }
+            if (typeof(IAuditedEntity<long>).IsAssignableFrom(typeof(TEntity)))
+            {
+                var userId = DbContext.EntityHelper.GetUpdateUserId<long>();
+                return await query.ExecuteUpdateAsync(e => e
+                    .SetProperty(p => (p as ISoftDelete)!.IsDeleted, true)
+                    .SetProperty(p => (p as IAuditedEntity<long>)!.UpdatedAt, DateTime.Now)
+                    .SetProperty(p => (p as IAuditedEntity<long>)!.UpdatedBy, userId), cancellationToken);
+            }
+            return await query.ExecuteUpdateAsync(e => e.SetProperty(p => (p as ISoftDelete)!.IsDeleted, true), cancellationToken);
+        }
+        return await query.ExecuteDeleteAsync(cancellationToken);
+    }
+
     protected virtual async Task SaveChangesIfAsync(bool autoSave, CancellationToken cancellationToken = default)
     {
         if (autoSave)

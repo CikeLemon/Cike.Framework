@@ -102,13 +102,13 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 | 3 | MinimalAPI 自动路由 | 类继承 `MinimalApiServiceBase`，public 方法按命名约定生成 `api/v1/...` | HTTP 接口层 |
 | 4 | 雪花/顺序 Guid Id 生成 | `IEntity<long>.Id == 0` 的实体被跟踪（Add）；`IEntity<Guid>` 自动顺序 Guid | 数据访问 / Id 生成 |
 | 5 | 审计字段填充 | 实体实现 `IAuditedEntity`：Added 填 CreatedAt/CreatedBy，Modified 填 UpdatedAt/UpdatedBy | 数据访问 |
-| 6 | 软删 | 实体实现 `ISoftDelete`：删除变 `IsDeleted=true`，查询自动过滤已删 | 数据访问 |
+| 6 | 软删 | 实体实现 `ISoftDelete`：删除变 `IsDeleted=true`，查询自动过滤已删（Set-based 批量删除 `ExecuteDeleteAsync` 同样自动改写软删；领域事件/客户端级联是例外，见数据访问） | 数据访问 |
 | 7 | 多租户过滤 | 实体实现 `IMultiTenant`：插入自动填 TenantId，查询自动按 `ICurrentTenant.Id` 过滤（`CurrentTenant` 来源是 `TenantMiddleware`，未启用 `UseMultiTenant()` 时恒为 0） | 数据访问 / 认证 |
 | 8 | 事务包裹 | 每次**根** `PublishAsync`（嵌套发布共享同一事务）：事件树成功 Commit / 失败 Rollback | 事件与 CQRS |
 | 9 | 领域事件入队/发布 | 聚合根 `AddDomainEvent(...)`：SaveChanges 入队，UoW Commit 提交前依次发布 | 事件与 CQRS |
 | 10 | 业务异常转 400 | 抛 `UserFriendlyException`/`BusinessException` → 中间件返回 BadRequest + 消息文本 | HTTP 接口层 |
 | 11 | long → string JSON | 所有 HTTP 响应中 `long`/`long?` 序列化为字符串（防前端精度丢失） | HTTP 接口层 |
-| 12 | 乐观并发戳刷新 | 实体实现 `IHasConcurrencyStamp`，修改时自动刷新 ConcurrencyStamp | 数据访问 |
+| 12 | 乐观并发戳刷新 | 实体实现 `IHasConcurrencyStamp`，修改时自动刷新 ConcurrencyStamp（Set-based 批量删除 `ExecuteDeleteAsync` 不在此列，见数据访问的已知差异） | 数据访问 |
 | 13 | 后台事件 | 事件开启后台模式即生效：继承 `BackgroundEvent` 或调用 `EnableBackgroundThread()`（`Event` 基类已实现 `IBackgroundEvent`，实际开关是 `IsBackgroundThread()`，默认同步）→ Channel + 独立 Scope 并发消费，异常仅记日志、无事务、不通知发布方 | 事件与 CQRS |
 | 14 | Saga 补偿 | `[LocalEventHandler(IsCancel = true)]`：handler 失败（重试耗尽、非 Ignore）时按 Order **升序**执行 `Order ≤ 失败步骤`（Throw 为 `≤ Order-1`）的取消 handler，然后抛出原异常 | 事件与 CQRS |
 | 15 | Validator 自动注册 | 依赖 `CikeFluentValidationModule`：全部已加载模块程序集的 `AbstractValidator<T>` 自动注册 | HTTP 接口层 |
