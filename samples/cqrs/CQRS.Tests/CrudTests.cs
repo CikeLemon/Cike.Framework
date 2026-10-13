@@ -64,12 +64,8 @@ public class CrudTests : IClassFixture<CQRSTestHost>
             await _host.PublishAsync(new CreateOrderCommand(dto));
         }
 
-        var query = new GetOrderListQuery(new GetOrderListDto
-        {
-            BuyerId = buyerId,
-            Page = 1,
-            PageSize = 2,
-        });
+        var query = new GetOrderPagedListQuery(Keyword: null, BuyerId: buyerId,
+            Paging: new PagedAndSortedResultRequest { Page = 1, PageSize = 2 });
         await _host.PublishAsync(query);
 
         var page = query.Result!;

@@ -423,10 +423,12 @@ public class OrderDto : AuditedEntityDto<long> { /* 业务字段 */ }           
 // Command：回传数据用可写属性（record 位置参数是 init-only，不能用于回传！）
 public record CreateOrderCommand(CreateOrderDto Dto) : Command { public long Id { get; set; } }
 
-// Orders/Queries/GetOrderListQuery.cs
+// Orders/Queries/GetOrderPagedListQuery.cs
 // Query：handler 给 Result 赋值
-// 分页列表 Query：携带继承 PagedAndSortedResultRequest 的筛选 Dto（Page/PageSize/Sorting/筛选一体），不要平铺 Page/PageSize
-public record GetOrderListQuery(GetOrderListDto Input) : Query<PagedResultDto<OrderDto>>;
+// 分页参数打包为 PagedAndSortedResultRequest 对象（零组装直传仓储），业务筛选参数平铺；
+// 筛选字段多时才改用继承 PagedAndSortedResultRequest 的 Dto
+public record GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)
+    : Query<PagedResultDto<OrderDto>>;
 
 // ── Application 层 ──
 public class OrderCommandHandler(IRepository<Order, long> orderRepository)
@@ -444,12 +446,12 @@ public class OrderCommandHandler(IRepository<Order, long> orderRepository)
 public class OrderQueryHandler(IReadOnlyRepository<Order, long> orderRepository)
 {
     [LocalEventHandler]
-    public async Task GetListAsync(GetOrderListQuery query, CancellationToken ct = default)
+    public async Task GetPagedListAsync(GetOrderPagedListQuery query, CancellationToken ct = default)
     {
         using (orderRepository.BeginAsNoTracking())  // 查询侧纪律：只读仓储 + 关跟踪
         {
-            // Input 继承 PagedAndSortedResultRequest，直接作分页请求，筛选字段写在 Dto 里
-            var (total, items) = await orderRepository.GetPagedListAsync(query.Input, /* 谓词 */ null, ct);
+            // Paging 从端点 [AsParameters] 绑定后一路透传，直接作分页请求——handler 不组装分页对象
+            var (total, items) = await orderRepository.GetPagedListAsync(query.Paging, /* 谓词 */ null, ct);
             // 读侧映射用 Mapster：按名字自动匹配（基类继承的 Id/审计字段也自动带上）
             query.Result = new PagedResultDto<OrderDto>(total, items.Select(o => o.Adapt<OrderDto>()).ToList());
         }
@@ -484,4 +486,6 @@ public class OrderService(ILocalEventBus? unused = null) : MinimalApiServiceBase
 7. **Command/Query/业务事件定义放 Application 层**，与 Handler 同层、一类型一文件（如 `Orders/Commands/CreateOrderCommand.cs`）；`Application.Contracts` 只放 Dto。契约层的价值是"可安全外发的数据形状"，用例消息与内部事件不是对外契约。
 8. **实体创建统一走静态工厂 `Create(...)`**——收原生类型/值对象，不把 Dto 传进领域层（Domain 不引用 Contracts）；本地不变量在工厂内断言，跨聚合查重（如编码唯一）在 Handler 先 `AnyAsync` 再调工厂。setter 封装程度与 Mapster 写侧映射**看项目取舍，不强制完整 DDD**（见[实体设计约定](./data-access.md)）；Mapster 读侧实体→Dto 投影无争议。
 9. **读侧（实体→Dto）映射用 Mapster，不要手写 `MapToDto`**——`entity.Adapt<XxxDto>()` 按名字自动匹配，继承基类带来的 Id/审计字段也自动映射；非平凡映射（字段名不一致、值对象拆解、计算字段）在 Application 模块 `ConfigureServicesAsync` 注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`（示例见 CQRS sample 的 `Money→decimal`）。手写逐字段映射是样板代码且新增字段必漂移。
-10. **分页列表 Query 不要把 Page/PageSize 平铺成位置参数**——Query 携带一个继承 `PagedAndSortedResultRequest` 的筛选 Dto（`GetOrderListQuery(GetOrderListDto Input)`，见[Dto 编写约定](./framework-core.md)），Handler 把它直接传 `GetPagedListAsync` / `ToPaginationAsync`，不要再手搓 `new PagedAndSortedResultRequest { Page = ..., PageSize = ..., Sorting = "Id asc" }`；`Sorting` 来自前端时必须白名单校验（Dynamic LINQ 注入面，见[框架内核](./framework-core.md)反模式）。
+10. **分页参数打包成一个对象，业务筛选参数平铺**——Query 形如 `GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)`：分页参数（Page/PageSize/Sorting）用 `PagedAndSortedResultRequest` 对象承载（筛选字段多时才改用继承它的 Dto），其余筛选参数直接平铺。端点用 `[AsParameters]` 把分页对象从查询串直接绑定（ASP.NET Core 原生机制），`new GetOrderPagedListQuery(keyword, buyerId, paging)` → Handler `GetPagedListAsync(query.Paging, ...)` → 仓储——中间任何一层不拆散、不重新 `new` 分页请求，同样的字段抄两遍，新增字段必漏。
+11. **分页列表查询命名必须带 PagedList**——`GetOrderPagedListQuery` / Handler 方法 `GetPagedListAsync` / 端点方法 `GetPagedListAsync`（路由 `/Orders/PagedList`），与仓储 `GetPagedListAsync` 对齐；`GetOrderListQuery` / `GetListAsync` 留给非分页的全量列表查询。筛选字段多而建的 Dto 同理命名 `GetOrderPagedListDto`。
+12. `Sorting` 来自前端时必须白名单校验（Dynamic LINQ 注入面，见[框架内核](./framework-core.md)反模式）。

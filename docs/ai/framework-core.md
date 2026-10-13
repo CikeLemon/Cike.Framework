@@ -303,7 +303,7 @@ DTO 基类（全部位于 `Cike.Contracts.EntityDtos`，纯 POCO，无任何方�
 | 轻量输出（下拉/选项，`XxxBriefDto`/`XxxOptionDto`） | 继承 `EntityDto<TKey>`（只有 Id），再补展示字段 | `public class UserBriefDto : EntityDto<long>` |
 | 输入 Dto（`CreateXxxDto`/`UpdateXxxDto`/动作 Dto 如 `ResetXxxPasswordDto`） | **平铺，不继承任何基类**——字段是用户可填子集，与审计无关 | `public class CreateOrderDto` |
 | 嵌套子 Dto（挂在输入/输出 Dto 内部，如 `AddressDto`/`OrderLineDto`） | **平铺**，不继承（无独立审计语义） | `public class AddressDto` |
-| 分页请求（`GetXxxListDto`/`GetXxxRequest`） | 继承 `PagedAndSortedResultRequest`，只加筛选字段 | `public class GetOrderListDto : PagedAndSortedResultRequest` |
+| 分页请求 | 分页参数默认直接用 `PagedAndSortedResultRequest` 对象承载（端点 `[AsParameters]` 绑定，经 Query/Handler 透传到仓储）；**筛选字段多时才建继承它的 Dto**（`GetXxxPagedListDto`，只加筛选字段），少量筛选参数平铺即可（见[事件与 CQRS](./events-cqrs.md)） | `public class GetOrderPagedListDto : PagedAndSortedResultRequest` |
 | 分页返回 | `PagedResultDto<T>`（`Total` + `Items`），不自己造分页形状 | `PagedResultDto<OrderDto>` |
 
 | 类型 | 定义 | 字段 |

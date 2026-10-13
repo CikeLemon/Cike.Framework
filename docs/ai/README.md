@@ -88,6 +88,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 - 业务按聚合根组织子目录：`Application/Orders/` 下有 `Commands/`、`Queries/`、`Validators/`、Handler 类；Command、Query 定义在 Application 层与 Handler 同层（如 `Orders/Commands/CreateOrderCommand.cs`），契约层只放 Dto（如 `Orders/Dtos/OrderDto.cs`）
 - **一类型一文件**：Command、Query、事件、Dto、Validator 均一个类型一个文件，不要按聚合合并成 `XxxCommands.cs` / `XxxDtos.cs` 的杂烩文件
 - **Dto 继承约定**（按种类对号入座，详见 [框架内核](./framework-core.md)）：输出 Dto 默认继承 `AuditedEntityDto<TKey>`（要外发软删标记才 `FullAuditedEntityDto<TKey>`，轻量选项 `EntityDto<TKey>`）；输入 Dto 与嵌套子 Dto 平铺；分页请求继承 `PagedAndSortedResultRequest`、返回 `PagedResultDto<T>`
+- **分页列表查询命名带 PagedList**：`GetOrderPagedListQuery` / Handler 与端点方法 `GetPagedListAsync`（路由 `/Orders/PagedList`）/ 筛选 Dto `GetOrderPagedListDto`，与仓储 `GetPagedListAsync` 对齐；`GetOrderListQuery` / `GetListAsync` 留给非分页的全量列表
 - 历史代码中存在 `CommandHanlder` 拼写错误（少个 d），新代码一律写 `Handler`
 
 ## 4. 全局隐式行为汇总
@@ -123,7 +124,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 - 实体创建统一走静态工厂 `Create(...)`（收原生类型/值对象，本地不变量在工厂内断言，跨聚合查重在 Handler 先查再调工厂）；setter 封装与 Mapster 写侧映射看项目取舍，不强制完整 DDD（见 [数据访问](./data-access.md) 实体设计约定）
 - 查询只读场景用 `repository.BeginAsNoTracking()` 包裹，复杂查询走 `GetQueryable()` / `WithDetailsAsync()`
 - 读侧（实体→Dto）映射用 Mapster：`entity.Adapt<TDto>()`（基类继承的 Id/审计字段按名字自动带上）；非平凡映射在 Application 模块注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`，不要手写逐字段 `MapToDto`
-- 分页列表 Query 携带继承 `PagedAndSortedResultRequest` 的筛选 Dto（`GetXxxListQuery(GetXxxListDto Input)`），Handler 直接把 Input 传 `GetPagedListAsync`/`ToPaginationAsync`——不要把 Page/PageSize 平铺成 Query 位置参数、再在 Handler 手搓分页请求
+- 分页参数打包成一个 `PagedAndSortedResultRequest` 对象（端点 `[AsParameters]` 绑定），业务筛选参数平铺：`GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)`，Handler 直传 `GetPagedListAsync`/`ToPaginationAsync`——筛选字段多时才改用继承它的 Dto，不要在中间任何一层重新组装分页请求
 - 动态组合 `Expression<Func<T, bool>>` 查询条件用 `ExpressionExtensions.And/Or/Not`（`using Cike.Core.Extensions.Expressions;`，参数自动重绑定），不要手写 ExpressionVisitor
 - 仓储 `GetListAsync` / `GetPagedListAsync` 内部统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储重写这两个出口即可影响全部列表/分页查询
 - `autoSave` 默认 true 立即保存；配合工作单元统一提交时传 false

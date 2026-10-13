@@ -28,11 +28,10 @@ public class OrderQueryHandler(IReadOnlyRepository<Order, long> orderRepository)
     }
 
     [LocalEventHandler]
-    public async Task GetListAsync(GetOrderListQuery query, CancellationToken cancellationToken = default)
+    public async Task GetPagedListAsync(GetOrderPagedListQuery query, CancellationToken cancellationToken = default)
     {
-        var input = query.Input;
-        var keyword = input.Keyword;
-        var buyerId = input.BuyerId;
+        var keyword = query.Keyword;
+        var buyerId = query.BuyerId;
 
         Expression<Func<Order, bool>>? predicate = null;
         if (keyword != null || buyerId.HasValue)
@@ -49,7 +48,7 @@ public class OrderQueryHandler(IReadOnlyRepository<Order, long> orderRepository)
                 queryable = queryable.Where(predicate);
             }
 
-            var (total, items) = await queryable.ToPaginationAsync(input, cancellationToken);
+            var (total, items) = await queryable.ToPaginationAsync(query.Paging, cancellationToken);
             query.Result = new PagedResultDto<OrderDto>(
                 total, items.Select(o => o.Adapt<OrderDto>()).ToList());
         }

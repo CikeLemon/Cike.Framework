@@ -212,9 +212,10 @@ public class OrderService : MinimalApiServiceBase
         [FromServices] ILocalEventBus eventBus, long id, CancellationToken ct = default)
         => TypedResults.Ok(await queryAsync(id));
 
-    public Task<Ok<PagedResultDto<OrderDto>>> GetListAsync(
+    public Task<Ok<PagedResultDto<OrderDto>>> GetPagedListAsync(
         [FromServices] ILocalEventBus eventBus,
-        string? keyword, int page = 1, int pageSize = 10, CancellationToken ct = default)
+        string? keyword, long? buyerId,
+        [AsParameters] PagedAndSortedResultRequest paging, CancellationToken ct = default)
         => ...;
 
     public Task<Ok> PayAsync([FromServices] ILocalEventBus eventBus, long id, CancellationToken ct = default)
@@ -231,7 +232,7 @@ public class OrderService : MinimalApiServiceBase
 |---|---|---|---|
 | `CreateAsync` | `Create`→POST；剥前缀+`Async` 后方法段为空 | POST | `/api/v1/Orders` |
 | `GetAsync(long id)` | `Get`→GET；方法段空 + 必填 id 段 | GET | `/api/v1/Orders/{id}` |
-| `GetListAsync(...)` | `Get`→GET；方法段 `List`；简单参数走查询串 | GET | `/api/v1/Orders/List?keyword=&page=1&pageSize=10` |
+| `GetPagedListAsync(...)` | `Get`→GET；方法段 `PagedList`；简单参数与 `[AsParameters]` 对象的属性按名走查询串 | GET | `/api/v1/Orders/PagedList?keyword=&buyerId=&page=1&pageSize=10` |
 | `PayAsync(long id)` | 无匹配前缀→默认 POST；方法段 `Pay` + id 段 | POST | `/api/v1/Orders/Pay/{id}` |
 | `DeleteAsync(long id)` | `Delete`→DELETE；方法段空 + id 段 | DELETE | `/api/v1/Orders/{id}` |
 

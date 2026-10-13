@@ -32,19 +32,13 @@ public class OrderService : MinimalApiServiceBase
         return query.Result == null ? TypedResults.NotFound() : TypedResults.Ok(query.Result);
     }
 
-    public async Task<Ok<PagedResultDto<OrderDto>>> GetListAsync(
+    public async Task<Ok<PagedResultDto<OrderDto>>> GetPagedListAsync(
         [FromServices] ILocalEventBus eventBus,
-        string? keyword, long? buyerId, int page = 1, int pageSize = 10, string? sorting = null,
+        string? keyword, long? buyerId,
+        [AsParameters] PagedAndSortedResultRequest paging,   // 分页参数从查询串直接绑定进对象
         CancellationToken cancellationToken = default)
     {
-        var query = new GetOrderListQuery(new GetOrderListDto
-        {
-            Keyword = keyword,
-            BuyerId = buyerId,
-            Page = page,
-            PageSize = pageSize,
-            Sorting = sorting ?? string.Empty,
-        });
+        var query = new GetOrderPagedListQuery(keyword, buyerId, paging);
         await eventBus.PublishAsync(query, cancellationToken);
         return TypedResults.Ok(query.Result ?? new PagedResultDto<OrderDto>());
     }
