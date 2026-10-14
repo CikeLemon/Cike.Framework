@@ -126,7 +126,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 - 读侧（实体→Dto）映射用 Mapster：`entity.Adapt<TDto>()`（基类继承的 Id/审计字段按名字自动带上）；非平凡映射在 Application 模块注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`，不要手写逐字段 `MapToDto`
 - 分页参数打包成一个 `PagedAndSortedResultRequest` 对象（端点 `[AsParameters]` 绑定），业务筛选参数平铺：`GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)`，Handler 直传 `GetPagedListAsync`/`ToPaginationAsync`——筛选字段多时才改用继承它的 Dto，不要在中间任何一层重新组装分页请求
 - 动态组合 `Expression<Func<T, bool>>` 查询条件用 `ExpressionExtensions.And/Or/Not`（`using Cike.Core.Extensions.Expressions;`，参数自动重绑定），不要手写 ExpressionVisitor
-- 仓储 `GetListAsync` / `GetPagedListAsync` 内部统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储重写这两个出口即可影响全部列表/分页查询
+- 仓储 `GetListAsync` / `GetPagedListAsync` 内部统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储重写这两个出口即可影响全部列表/分页查询；读侧投影（实体→Dto）走泛型重载 `ToListAsync<TSelector>(IQueryable<TSelector>)`，同为可重写出口
 - `autoSave` 默认 true 立即保存；配合工作单元统一提交时传 false
 - 业务校验失败抛 `UserFriendlyException`，HTTP 层自动转 400 + 消息文本
 - 端点类是 Singleton：Scoped 依赖（EventBus/仓储/DbContext）用 `[FromServices]` 方法参数注入，不要构造函数注入

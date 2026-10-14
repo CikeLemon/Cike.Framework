@@ -214,6 +214,7 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 | `Task<List<TEntity>> GetListAsync(Expression<Func<TEntity, bool>> predicate, string sorting = "Id asc", CancellationToken ct = default)` | 条件列表 + 排序（`sorting` 是 System.Linq.Dynamic.Core 字符串，如 `"Name"` / `"Name desc"`；缺省 `"Id asc"`。注意：没有 `(predicate, ct)` 二参重载——传取消令牌需写全 `GetListAsync(pred, "Id asc", ct)`，避免与 `sorting` 参数冲突） |
 | `Task<(long Total, List<TEntity> Items)> GetPagedListAsync(IPagedAndSortedRequest request, Expression<Func<TEntity, bool>>? predicate = null, CancellationToken ct = default)` | 分页 + 排序（`Sorting` 是 System.Linq.Dynamic.Core 字符串，如 `"Name"` / `"Name desc"`；先 Count 后排序分页） |
 | `Task<List<TEntity>> ToListAsync(IQueryable<TEntity> query, CancellationToken ct = default)` | 提交自定义 IQueryable 取列表——所有 `GetListAsync` 重载内部统一走它（可重写出口） |
+| `Task<List<TSelector>> ToListAsync<TSelector>(IQueryable<TSelector> query, CancellationToken ct = default)` | 提交自定义**投影** IQueryable 取列表（`TSelector` 为任意类型，如 Dto）——读侧投影出口：`GetQueryable().Where(...).Select(x => new Dto{...})` 后经它物化，软删/多租户过滤器随 `GetQueryable()` 依然生效（可重写出口） |
 | `Task<(long Total, List<TEntity> Items)> ToPagedListAsync(IQueryable<TEntity> query, IPagedAndSortedRequest request, CancellationToken ct = default)` | 提交自定义 IQueryable 分页（内部 `ToPaginationAsync`）——`GetPagedListAsync` 内部统一走它（可重写出口） |
 | `Task<long> GetCountAsync(CancellationToken ct = default)` | 计数 |
 | `Task<long> GetCountAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)` | 条件计数 |
@@ -417,7 +418,7 @@ public class EfCoreRepository<TDbContext, TEntity, TKey>(TDbContext dbContext) :
 - `CikeDbContext` 实现了 `IScopedDependency` → 具体 DbContext 类所在程序集被模块树加载时**自动 Scoped 注册**（前提：该项目有自己的模块类）；这就是为什么 DbContext 构造函数必须保留 `(DbContextOptions<T>, IServiceProvider)` 双参且泛型参数必须是自身。
 - 所有仓储写操作经 ChangeTracker 钩子获得自动化：`Add`/`InsertAsync` 调用瞬间即生成 Id、写审计、写 TenantId、开事务（不等 SaveChanges）；软删转换与领域事件入队发生在 SaveChanges。
 - `GetQueryable()` / `WithDetails()` 返回的查询已带软删/多租户全局过滤器，默认跟踪。
-- 所有列表/分页查询统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储只需重写这两个出口，即可影响全部 `GetListAsync` / `GetPagedListAsync`（含换提交方式、加全局拦截等）。
+- 所有列表/分页查询统一汇入虚方法 `ToListAsync` / `ToPagedListAsync` 提交——自定义仓储只需重写这两个出口，即可影响全部 `GetListAsync` / `GetPagedListAsync`（含换提交方式、加全局拦截等）。读侧投影（实体→Dto）走泛型重载 `ToListAsync<TSelector>(IQueryable<TSelector>)` 提交，与实体版同为可重写出口。
 - `CikeDbContextOptions.DefaultConfigureAction` 为空（既没引方言包也没手动 Configure）时，DbContext 构造会因"无 provider"在首次解析时失败——**本包自身不含任何数据库方言**，方言必须来自 Provider 包或手动 `Configure`（测试里常用 `UseSqlite`）。
 
 ### 示例

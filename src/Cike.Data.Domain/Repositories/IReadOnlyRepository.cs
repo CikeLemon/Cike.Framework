@@ -19,6 +19,8 @@ public interface IReadOnlyRepository<TEntity, TKey>
 
     Task<List<TEntity>> ToListAsync(IQueryable<TEntity> query, CancellationToken cancellationToken = default);
 
+    Task<List<TSelector>> ToListAsync<TSelector>(IQueryable<TSelector> query, CancellationToken cancellationToken = default);
+
     Task<(long Total, List<TEntity> Items)> ToPagedListAsync(IQueryable<TEntity> query, IPagedAndSortedRequest request, CancellationToken cancellationToken = default);
 
     Task<long> GetCountAsync(CancellationToken cancellationToken = default);

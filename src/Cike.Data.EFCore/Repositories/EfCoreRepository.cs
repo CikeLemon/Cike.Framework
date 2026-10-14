@@ -58,6 +58,11 @@ public class EfCoreRepository<TDbContext, TEntity, TKey>(TDbContext dbContext) :
         return await query.ToListAsync(cancellationToken);
     }
 
+    public virtual async Task<List<TSelector>> ToListAsync<TSelector>(IQueryable<TSelector> query, CancellationToken cancellationToken = default)
+    {
+        return await query.ToListAsync(cancellationToken);
+    }
+
     public virtual async Task<(long Total, List<TEntity> Items)> ToPagedListAsync(IQueryable<TEntity> query, IPagedAndSortedRequest request, CancellationToken cancellationToken = default)
     {
         return await query.ToPaginationAsync(request, cancellationToken);
