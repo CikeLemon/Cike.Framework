@@ -4,7 +4,7 @@
 
 提供"当前用户"（`ICurrentUser`，JWT Claims 的只读投影）与"当前租户"（`ICurrentTenant`，`AsyncLocal<long>` 环境值）两个请求上下文抽象，以及把请求解析为租户 Id 的 `TenantMiddleware`——供业务代码读取当前身份，供数据访问层的多租户查询过滤与插入自动填值消费（见 [数据访问](./data-access.md)）。
 
-**上下文不是认证**：本域不注册 AuthenticationHandler、不签发/校验 token——JWT 的注册与配置（`AddAuthentication().AddJwtBearer(...)` + `TokenValidationParameters`）完全由业务宿主自己写；端点 401/403 的产生与认证开关见 [HTTP 接口层](./http-api.md)。本域只**消费**认证结果（`HttpContext.User` 的 Claims）。
+**上下文不是认证**：本域不注册 AuthenticationHandler、不签发/校验 token——JWT 的注册与配置（`AddAuthentication().AddJwtBearer(...)` + `TokenValidationParameters`）完全由业务宿主自己写；需要 OpenIddict token 校验与端点权限特性时引用 [Cike.OpenIddict](./openiddict.md)（资源服务器能力域，产出本域消费的 Claims）。端点 401/403 的产生与认证开关见 [HTTP 接口层](./http-api.md)。本域只**消费**认证结果（`HttpContext.User` 的 Claims）。
 
 什么时候不用：只做 token 签发/校验直接用 ASP.NET Core Authentication（`Microsoft.AspNetCore.Authentication.JwtBearer`），不需要本包；不读当前用户/租户、也未用 `IMultiTenant` 实体的项目不必引入。
 

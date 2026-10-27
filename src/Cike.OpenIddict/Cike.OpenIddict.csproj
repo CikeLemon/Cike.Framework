@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<Import Project="../../common.props" />
+	<PropertyGroup>
+		<TargetFrameworks>$(TargetFrameworks)</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Version>$(Version)</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App"></FrameworkReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="OpenIddict.Validation.AspNetCore" Version="7.7.2" />
+		<PackageReference Include="OpenIddict.Validation.SystemNetHttp" Version="7.7.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Cike.Auth\Cike.Auth.csproj" />
+		<ProjectReference Include="..\Cike.AspNetCore.MinimalAPIs\Cike.AspNetCore.MinimalAPIs.csproj" />
+		<ProjectReference Include="..\Cike.Core\Cike.Core.csproj" />
+	</ItemGroup>
+
+</Project>

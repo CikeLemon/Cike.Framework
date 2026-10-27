@@ -305,7 +305,7 @@ public class HostModule : CikeModule { }
 
 ### 边界与反模式
 
-- 【陷阱】**端点默认全部 `RequireAuthorization`**：没配认证时请求失败（未注册认证方案通常直接 500 `InvalidOperationException`，配置了 JWT 但缺 token 才是 401）。开发期一步关闭：全局 `Configure<GlobalMinimalApiRouteOptions>(o => o.EnabledAuthorization = false)`——总开关同时控制中间件与端点元数据。只想让个别服务免认证时，在全局开启的前提下于端点类构造函数设 `RouteOptions.EnabledAuthorization = false`。
+- 【陷阱】**端点默认全部 `RequireAuthorization`**：没配认证时请求失败（未注册认证方案通常直接 500 `InvalidOperationException`，配置了 JWT 但缺 token 才是 401）。开发期一步关闭：全局 `Configure<GlobalMinimalApiRouteOptions>(o => o.EnabledAuthorization = false)`——总开关同时控制中间件与端点元数据。只想让个别服务免认证时，在全局开启的前提下于端点类构造函数设 `RouteOptions.EnabledAuthorization = false`。引用了 [Cike.OpenIddict](./openiddict.md) 的宿主注意两点差异：认证/授权中间件会被 WebApplication 自动挂载（"关 → 不挂中间件"不再成立）；总开关关闭时权限特性降级为允许模式，端点级开关则不绕过显式权限特性。
 - 【陷阱】**Singleton 端点类不能构造注入 Scoped 服务**（仓储、DbContext、EventBus）：开发期（作用域校验）抛 `InvalidOperationException`，生产期形成 captive dependency。一律改为方法参数 `[FromServices]` 注入。
 - 【陷阱】**两种 400 响应形状并存**，前端分别处理：`[AutoValidation]` 校验失败 → `application/problem+json` ProblemDetails（`{"errors": {属性: [消息数组]}}`）；`UserFriendlyException`/`BusinessException` → `text/plain` 纯文本消息。详见 FluentValidation 章。
 - 不要手写 `app.MapGet/MapPost`、`AddControllers`——继承 `MinimalApiServiceBase` 走命名约定。
