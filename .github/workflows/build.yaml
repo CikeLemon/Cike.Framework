@@ -1,0 +1,59 @@
+name: build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDKs (net8.0 / net10.0)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Resolve version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match format v<semver>, e.g. v1.0.12"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: dotnet build Cike.Framework.sln -c Release -p:Version=$VERSION
+
+      - name: Test
+        run: |
+          dotnet test tests/Cike.Data.EFCore.Tests -c Release --no-build
+          dotnet test tests/Cike.OpenIddict.Tests -c Release --no-build
+          dotnet test samples/cqrs/CQRS.Tests -c Release --no-build
+
+      - name: Pack (src libraries only)
+        run: |
+          mkdir -p dist/packages
+          find src -name '*.csproj' -print0 | xargs -0 -I{} dotnet pack {} -c Release --no-build -p:Version=$VERSION -o dist/packages
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs-${{ github.ref_name }}
+          path: dist/packages/*.nupkg
+
+      - name: Push to nuget.org
+        run: dotnet nuget push "dist/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ secrets.NUGET_API_KEY }}" --skip-duplicate

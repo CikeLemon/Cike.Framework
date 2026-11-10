@@ -1,3 +1,4 @@
+using Cike.Contracts.EntityDtos;
 using CQRS.Tests.Infrastructure;
 using Xunit;
 
