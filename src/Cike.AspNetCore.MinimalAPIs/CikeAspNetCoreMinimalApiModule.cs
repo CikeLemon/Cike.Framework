@@ -15,8 +15,6 @@ public class CikeAspNetCoreMinimalApiModule : CikeModule
             options.Version = "v1";
         });
 
-        context.Services.Configure<MinimalApiOptions>(options => { });
-
         context.Services.AddObjectAccessor<IApplicationBuilder>();
         context.Services.AddObjectAccessor<IEndpointRouteBuilder>();
 
