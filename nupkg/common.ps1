@@ -76,8 +76,8 @@ $projects = (
     # framework
     "src/Cike.AspNetCore.MinimalAPIs",
     "src/Cike.AspNetCore.Swagger",
-    "Cike.Security",
-    "Cike.MultiTenancy",
+    "src/Cike.Security",
+    "src/Cike.MultiTenancy",
     "src/Cike.Caching",
     "src/Cike.Contracts",
     "src/Cike.Core",
