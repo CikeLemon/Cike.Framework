@@ -10,11 +10,11 @@ HTTP 接口层负责把业务用例暴露为 HTTP 端点：约定式自动路由
 
 | 包 | 职责 | 依赖（项目引用 / 包引用） |
 |---|---|---|
-| Cike.AspNetCore.MinimalAPIs | 自动路由生成 + 全局 HTTP 行为 + 宿主引导扩展 | Cike.Core、Cike.Auth、Cike.FluentValidation；FluentValidation.AspNetCore 11.3.0；FrameworkReference Microsoft.AspNetCore.App。模块级 `[DependsOn(CikeAuthModule)]` |
+| Cike.AspNetCore.MinimalAPIs | 自动路由生成 + 全局 HTTP 行为 + 宿主引导扩展 | Cike.Core、Cike.MultiTenancy、Cike.FluentValidation；FluentValidation.AspNetCore 11.3.0；FrameworkReference Microsoft.AspNetCore.App。模块级 `[DependsOn(CikeMultiTenancyModule)]` |
 | Cike.AspNetCore.Swagger | Swagger/SwaggerUI 约定式装配（两个扩展方法） | Cike.Core；Swashbuckle.AspNetCore 6.6.2 |
 | Cike.FluentValidation | Validator 自动注册 + 端点参数自动校验 | Cike.Core；FluentValidation.DependencyInjectionExtensions 12.0.0；FrameworkReference Microsoft.AspNetCore.App |
 
-依赖顺序：Swagger 与 FluentValidation 相互独立、均只依赖 Cike.Core；MinimalAPIs 编译期引用 FluentValidation（`[AutoValidation]` 的执行体 `AutoFluentValidationEndpointFilter` 在该包内），模块级依赖 CikeAuthModule（引入 `ICurrentUser`/`ICurrentTenant` 基础设施，见[认证与当前用户](./auth.md)）。宿主典型引用：`Service.Open → MinimalAPIs + Swagger`，`Application → FluentValidation`（在 Application 层模块上 `[DependsOn(CikeFluentValidationModule)]`）。
+依赖顺序：Swagger 与 FluentValidation 相互独立、均只依赖 Cike.Core；MinimalAPIs 编译期引用 FluentValidation（`[AutoValidation]` 的执行体 `AutoFluentValidationEndpointFilter` 在该包内），模块级依赖 CikeMultiTenancyModule（引入 `ICurrentTenant` 与 `TenantMiddleware`，供 `UseMultiTenant()` 挂载；**不**带入 `CikeSecurityModule`，需要 `ICurrentUser` 又不依赖 EF Core 模块时宿主须自行 DependsOn，见[当前用户与多租户](./auth.md)）。宿主典型引用：`Service.Open → MinimalAPIs + Swagger`，`Application → FluentValidation`（在 Application 层模块上 `[DependsOn(CikeFluentValidationModule)]`）。
 
 ## 章节目录
 
@@ -133,12 +133,9 @@ public class GlobalMinimalApiRouteOptions : MinimalApiRouteOptions
     public IEnumerable<Assembly>? AdditionalAssemblies { get; set; } // 死配置：扫描范围固定为全部已加载模块程序集
     public string GetPluralizationName(string name);                 // 复数化入口（内置 EnglishPluralizationService）
 }
-
-[Obsolete("直接 DependsOn 引用 CikeAspNetCoreMinimalApiModule 即自动扫描")]
-public class MinimalApiOptions { public List<Assembly> MinimalApiAsseblies { get; } ... }
 ```
 
-**模块与全局行为**（模块类 `CikeAspNetCoreMinimalApiModule`，`[DependsOn(CikeAuthModule)]`）：
+**模块与全局行为**（模块类 `CikeAspNetCoreMinimalApiModule`，`[DependsOn(CikeMultiTenancyModule)]`）：
 
 - `ConfigureServicesAsync`：`AddHttpContextAccessor`；`TryAddSingleton<AutoValidationEndpointFilterProvider>()`；`Configure<GlobalMinimalApiRouteOptions>`（Prefix=api, Version=v1）；`AddObjectAccessor<IApplicationBuilder/IEndpointRouteBuilder>()`；注册 CORS 策略（名 `CikeAspNetCoreMinimalApiModule`）；`ConfigureHttpJsonOptions` 注册 `LongToStringConverter` + `NullableLongToStringConverter`。
 - `InitializeAsync` 按序装配中间件：`UseMiddleware<BusinessExceptionMiddleware>()` → `UseCors(...)` → 若 `GlobalMinimalApiRouteOptions.EnabledAuthorization` 则 `UseAuthentication()` + `UseAuthorization()` → 扫描映射全部端点（总开关同时门控端点级 `RequireAuthorization`，见隐式行为）。
@@ -151,7 +148,7 @@ public class MinimalApiOptions { public List<Assembly> MinimalApiAsseblies { get
 // 触发全部模块 InitializeAsync（自动路由映射在此发生）
 public static Task InitializeApplicationAsync(this WebApplication app);
 
-// 挂载 TenantMiddleware（多租户解析，见 auth 文档）
+// 挂载 TenantMiddleware（多租户解析，见 auth 文档 Cike.MultiTenancy 章）
 public static void UseMultiTenant(this IApplicationBuilder app);
 
 // 等价 builder.Services.AddApplicationAsync<T>() + ReplaceConfiguration(builder.Configuration)
@@ -305,13 +302,13 @@ public class HostModule : CikeModule { }
 
 ### 边界与反模式
 
-- 【陷阱】**端点默认全部 `RequireAuthorization`**：没配认证时请求失败（未注册认证方案通常直接 500 `InvalidOperationException`，配置了 JWT 但缺 token 才是 401）。开发期一步关闭：全局 `Configure<GlobalMinimalApiRouteOptions>(o => o.EnabledAuthorization = false)`——总开关同时控制中间件与端点元数据。只想让个别服务免认证时，在全局开启的前提下于端点类构造函数设 `RouteOptions.EnabledAuthorization = false`。引用了 [Cike.OpenIddict](./openiddict.md) 的宿主注意两点差异：认证/授权中间件会被 WebApplication 自动挂载（"关 → 不挂中间件"不再成立）；总开关关闭时权限特性降级为允许模式，端点级开关则不绕过显式权限特性。
+- 【陷阱】**端点默认全部 `RequireAuthorization`**：没配认证时请求失败（未注册认证方案通常直接 500 `InvalidOperationException`，配置了 JWT 但缺 token 才是 401）。开发期一步关闭：全局 `Configure<GlobalMinimalApiRouteOptions>(o => o.EnabledAuthorization = false)`——总开关同时控制中间件与端点元数据。只想让个别服务免认证时，在全局开启的前提下于端点类构造函数设 `RouteOptions.EnabledAuthorization = false`。
 - 【陷阱】**Singleton 端点类不能构造注入 Scoped 服务**（仓储、DbContext、EventBus）：开发期（作用域校验）抛 `InvalidOperationException`，生产期形成 captive dependency。一律改为方法参数 `[FromServices]` 注入。
 - 【陷阱】**两种 400 响应形状并存**，前端分别处理：`[AutoValidation]` 校验失败 → `application/problem+json` ProblemDetails（`{"errors": {属性: [消息数组]}}`）；`UserFriendlyException`/`BusinessException` → `text/plain` 纯文本消息。详见 FluentValidation 章。
 - 不要手写 `app.MapGet/MapPost`、`AddControllers`——继承 `MinimalApiServiceBase` 走命名约定。
 - 不要在非宿主项目（Domain/Application 等）引用 `Cike.AspNetCore.*`。
 - id 段规则细节：`long? id` 或 `long id = 0` 生成 `{id?}`（可选段），`long id` 生成 `{id}`；`[FromQuery] long id` 不会生成路由段（有绑定特性即不参与 id 推导）。
-- `DisablePluralizeServiceName`、`AdditionalAssemblies` 是**死配置**（声明但路由逻辑从不读取），不要设置并期望生效；`MinimalApiOptions` 已 `[Obsolete]`。
+- `DisablePluralizeServiceName`、`AdditionalAssemblies` 是**死配置**（声明但路由逻辑从不读取），不要设置并期望生效。旧的 `MinimalApiOptions`（`MinimalApiAsseblies`）已删除，直接 `[DependsOn(typeof(CikeAspNetCoreMinimalApiModule))]` 即自动扫描全部模块程序集。
 - 中间基类的 public 方法不会被映射（`DeclaredOnly`）；本类声明的 public 属性 getter 会被当端点——属性请用非 public 或放到非端点类。
 - GET 端点不声明复杂类型参数（复杂类型一律 body 绑定）；列表过滤参数逐个声明为简单类型走查询串。
 - 需要跨域私有端点集合时新建独立端点类（`ServiceName`/`Prefix` 可按服务粒度定制），不要在一个类里混杂多资源。

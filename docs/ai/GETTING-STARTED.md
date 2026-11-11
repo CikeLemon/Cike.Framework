@@ -28,7 +28,7 @@
 | [http-api.md](./http-api.md) | 自动路由、Swagger、参数校验 |
 | [data-access.md](./data-access.md) | 实体基类、仓储、DbContext 自动化、事务、方言 |
 | [events-cqrs.md](./events-cqrs.md) | Command/Query、领域事件、Saga、后台事件 |
-| [auth.md](./auth.md) | 当前用户/租户上下文 |
+| [auth.md](./auth.md) | 当前用户（Cike.Security）/ 多租户（Cike.MultiTenancy）上下文 |
 | [caching.md](./caching.md) | Redis / 两级缓存 |
 | [locks.md](./locks.md) | 进程内锁 / 分布式锁 |
 | [id-generation.md](./id-generation.md) | 雪花 Id / 顺序 Guid |
