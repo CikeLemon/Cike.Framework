@@ -24,9 +24,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Cike.Auth\Cike.Auth.csproj" />
+		<ProjectReference Include="..\Cike.Security\Cike.Security.csproj" />
 		<ProjectReference Include="..\Cike.Data.Domain\Cike.Data.Domain.csproj" />
 		<ProjectReference Include="..\Cike.EventBus.Adaptive\Cike.EventBus.Adaptive.csproj" />
+		<ProjectReference Include="..\Cike.MultiTenancy\Cike.MultiTenancy.csproj" />
 		<ProjectReference Include="..\Cike.UniversalId\Cike.UniversalId.csproj" />
 		<ProjectReference Include="..\Cike.Uow\Cike.Uow.csproj" />
 	</ItemGroup>

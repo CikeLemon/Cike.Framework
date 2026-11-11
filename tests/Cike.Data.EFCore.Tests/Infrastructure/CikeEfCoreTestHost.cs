@@ -1,3 +1,5 @@
+using Cike.MultiTenancy;
+
 namespace Cike.Data.EFCore.Tests.Infrastructure;
 
 /// <summary>

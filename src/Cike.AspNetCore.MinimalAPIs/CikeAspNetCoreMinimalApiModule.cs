@@ -1,8 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection.Extensions;
+﻿using Cike.MultiTenancy;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cike.AspNetCore.MinimalAPIs;
 
-[DependsOn([typeof(CikeAuthModule)])]
+[DependsOn([typeof(CikeMultiTenancyModule)])]
 public class CikeAspNetCoreMinimalApiModule : CikeModule
 {
     public override async Task ConfigureServicesAsync(ServiceConfigurationContext context)

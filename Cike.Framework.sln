@@ -29,7 +29,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cike.Data.EFCore", "src\Cik
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cike.Data", "src\Cike.Data\Cike.Data.csproj", "{CD278DC5-01BF-46D5-9CD6-CCDBB28D2F10}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cike.Auth", "src\Cike.Auth\Cike.Auth.csproj", "{50BF0BFB-7CCE-451C-B670-997F2A04F9DC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cike.Security", "src\Cike.Security\Cike.Security.csproj", "{50BF0BFB-7CCE-451C-B670-997F2A04F9DC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cike.Data.EFCore.MySql", "src\Cike.Data.EFCore.MySql\Cike.Data.EFCore.MySql.csproj", "{B51AA5A0-3654-4B1E-B4FD-DC6968A0BAAD}"
 EndProject
@@ -82,6 +82,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CQRS.Tests", "samples\cqrs\CQRS.Tests\CQRS.Tests.csproj", "{947333A8-0B23-4E3F-A0DC-DA8FBB483B32}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cike.OpenIddict.Tests", "tests\Cike.OpenIddict.Tests\Cike.OpenIddict.Tests.csproj", "{618FEE8D-8857-4203-92BB-7D9C3D72F9E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cike.MultiTenancy", "src\Cike.MultiTenancy\Cike.MultiTenancy.csproj", "{5FA31C90-62F6-4407-A81F-C4E22205B449}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -477,6 +479,18 @@ Global
 		{618FEE8D-8857-4203-92BB-7D9C3D72F9E9}.Release|x64.Build.0 = Release|Any CPU
 		{618FEE8D-8857-4203-92BB-7D9C3D72F9E9}.Release|x86.ActiveCfg = Release|Any CPU
 		{618FEE8D-8857-4203-92BB-7D9C3D72F9E9}.Release|x86.Build.0 = Release|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Debug|x64.Build.0 = Debug|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Debug|x86.Build.0 = Debug|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Release|x64.ActiveCfg = Release|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Release|x64.Build.0 = Release|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Release|x86.ActiveCfg = Release|Any CPU
+		{5FA31C90-62F6-4407-A81F-C4E22205B449}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -516,6 +530,7 @@ Global
 		{B3B26CB4-AA31-45B4-8854-355A181E012C} = {1BEF81A1-F519-4CCD-BCF0-6CE864E37E9D}
 		{947333A8-0B23-4E3F-A0DC-DA8FBB483B32} = {1BEF81A1-F519-4CCD-BCF0-6CE864E37E9D}
 		{618FEE8D-8857-4203-92BB-7D9C3D72F9E9} = {F47E477D-E643-49DE-94E4-D129178159AD}
+		{5FA31C90-62F6-4407-A81F-C4E22205B449} = {27D9FDC8-F174-49F1-8CB7-DA31137E32FC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DFC945B5-5799-4CB7-A1A0-1B30513EAD83}

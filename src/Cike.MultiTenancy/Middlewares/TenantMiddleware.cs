@@ -1,8 +1,4 @@
-﻿using Cike.Auth.Extensions;
-using Cike.Auth.MultiTenant;
-using Microsoft.AspNetCore.Http;
-
-namespace Cike.Auth.Middlewares;
+﻿namespace Cike.MultiTenancy.Middlewares;
 
 public class TenantMiddleware(ICurrentTenant _currentTenant) : IMiddleware, ITransientDependency
 {
@@ -24,25 +20,25 @@ public class TenantMiddleware(ICurrentTenant _currentTenant) : IMiddleware, ITra
 
     private long GetTenantId(HttpContext context)
     {
-        var tenantId = context.User.GetLongValue(CikeClaimTypes.TenantId);
+        var tenantId = context.User.GetLongValue(CikeTenantConsts.TenantIdKey);
         if (tenantId > 0)
         {
             return tenantId;
         }
 
-        if (context.Request.Headers.TryGetValue(CikeClaimTypes.TenantId, out var tenantStrval)
+        if (context.Request.Headers.TryGetValue(CikeTenantConsts.TenantIdKey, out var tenantStrval)
             && long.TryParse(tenantStrval.ToString(), out var headerTenantId))
         {
             return headerTenantId;
         }
 
-        if (context.Request.Cookies.TryGetValue(CikeClaimTypes.TenantId, out var tenantStr)
+        if (context.Request.Cookies.TryGetValue(CikeTenantConsts.TenantIdKey, out var tenantStr)
             && long.TryParse(tenantStr.ToString(), out var cookieTenantId))
         {
             return cookieTenantId;
         }
 
-        if (context.Request.Query.TryGetValue(CikeClaimTypes.TenantId, out tenantStrval)
+        if (context.Request.Query.TryGetValue(CikeTenantConsts.TenantIdKey, out tenantStrval)
             && long.TryParse(tenantStrval.ToString(), out var queryStringTenantId))
         {
             return queryStringTenantId;

@@ -1,4 +1,4 @@
-﻿namespace Cike.Auth.MultiTenant;
+﻿namespace Cike.MultiTenancy.Internals;
 
 public class CurrentTenantAccessor : ICurrentTenantAccessor
 {

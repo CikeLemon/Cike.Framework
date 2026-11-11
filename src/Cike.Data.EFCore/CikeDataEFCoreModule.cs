@@ -1,6 +1,8 @@
 ﻿namespace Cike.Data.EFCore;
 
-[DependsOn([typeof(CikeAuthModule),
+[DependsOn([
+    typeof(CikeSecurityModule),
+    typeof(CikeMultiTenancyModule),
     typeof(CikeDomainModule),
     typeof(CikeUniversalIdModule),
     typeof(CikeUowModule),

@@ -1,3 +1,5 @@
+using Cike.Security;
+
 namespace Cike.Data.EFCore.Tests.Infrastructure;
 
 /// <summary>
@@ -9,7 +11,7 @@ public class FakeCurrentUser : ICurrentUser
     public string? Id { get; set; }
     public string? UserName { get; set; }
     public string? Name { get; set; }
-    public string? SurName { get; set; }
+    public string? NickName { get; set; }
     public string? PhoneNumber { get; set; }
     public string? Email { get; set; }
     public long? TenantId { get; set; }

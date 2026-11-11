@@ -1,4 +1,4 @@
-namespace Cike.Auth;
+namespace Cike.Security.Internals;
 
 public class CurrentUserContext : ICurrentUser, ISingletonDependency
 {
@@ -48,13 +48,11 @@ public class CurrentUserContext : ICurrentUser, ISingletonDependency
 
     public virtual string? Name => this.GetValue(CikeClaimTypes.Name);
 
-    public virtual string? SurName => this.GetValue(CikeClaimTypes.SurName);
+    public virtual string? NickName => this.GetValue(CikeClaimTypes.NickName);
 
     public virtual string? PhoneNumber => this.GetValue(CikeClaimTypes.PhoneNumber);
 
-
     public virtual string? Email => this.GetValue(CikeClaimTypes.Email);
-
 
     public virtual long? TenantId => GetLongValue(CikeClaimTypes.TenantId);
 

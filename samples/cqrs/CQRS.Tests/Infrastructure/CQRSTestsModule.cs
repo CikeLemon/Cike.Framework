@@ -1,7 +1,7 @@
-using Cike.Auth;
 using Cike.Core.Extensions;
 using Cike.Core.Modularity;
 using Cike.EventBus.Local;
+using Cike.Security;
 using CQRS.Application;
 using CQRS.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

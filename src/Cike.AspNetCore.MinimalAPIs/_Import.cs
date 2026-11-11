@@ -2,13 +2,11 @@
 global using Cike.AspNetCore.MinimalAPIs.JsonConverts;
 global using Cike.AspNetCore.MinimalAPIs.Middlewares;
 global using Cike.AspNetCore.MinimalAPIs.Options;
-global using Cike.Auth;
 global using Cike.Core.Extensions.DependencyInjection;
 global using Cike.Core.Modularity;
 global using Cike.FluentValidation;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Http;
-global using Microsoft.AspNetCore.Http.Json;
 global using Microsoft.AspNetCore.Mvc;
 global using Microsoft.AspNetCore.Mvc.ModelBinding;
 global using Microsoft.AspNetCore.Routing;
