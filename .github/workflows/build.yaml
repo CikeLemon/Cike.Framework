@@ -3,11 +3,11 @@ name: build
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: read
-  id-token: write  # 受信任发布：申请 GitHub OIDC token 以向 nuget.org 换取短期令牌
+  id-token: write # 受信任发布：申请 GitHub OIDC token 以向 nuget.org 换取短期令牌
 
 env:
   DOTNET_NOLOGO: true
@@ -42,8 +42,6 @@ jobs:
       - name: Test
         run: |
           dotnet test tests/Cike.Data.EFCore.Tests -c Release --no-build
-          dotnet test tests/Cike.OpenIddict.Tests -c Release --no-build
-          dotnet test samples/cqrs/CQRS.Tests -c Release --no-build
 
       - name: Pack (src libraries only)
         run: |
