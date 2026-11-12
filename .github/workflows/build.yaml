@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write  # 受信任发布：申请 GitHub OIDC token 以向 nuget.org 换取短期令牌
 
 env:
   DOTNET_NOLOGO: true
@@ -55,5 +56,11 @@ jobs:
           name: nupkgs-${{ github.ref_name }}
           path: dist/packages/*.nupkg
 
+      - name: Get short-lived NuGet token (trusted publishing)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: MapleWithoutWords
+
       - name: Push to nuget.org
-        run: dotnet nuget push "dist/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ secrets.NUGET_API_KEY }}" --skip-duplicate
+        run: dotnet nuget push "dist/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
