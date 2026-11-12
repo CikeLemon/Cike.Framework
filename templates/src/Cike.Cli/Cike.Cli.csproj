@@ -7,7 +7,7 @@
 		<Authors>Cike Framework</Authors>
 		<Description>Templates to use when creating an application for Cike Framework.</Description>
 		<PackageTags>dotnet-new;templates;Cike</PackageTags>
-		<PackageProjectUrl>https://github.com/MapleWithoutWords/Cike.Framework</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/CikeLemon/Cike.Framework</PackageProjectUrl>
 
 		<PackageType>Template</PackageType>
 		<TargetFramework>netstandard2.0</TargetFramework>

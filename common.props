@@ -2,9 +2,9 @@
 	<PropertyGroup>
 		<Authors>Lemon.Li</Authors>
 		<Company>Lemon.Li</Company>
-		<PackageProjectUrl>https://github.com/MapleWithoutWords/Cike.Framework</PackageProjectUrl>
-		<PackageIconUrl>https://github.com/MapleWithoutWords/Cike.Framework/blob/main/logo.png</PackageIconUrl>
-		<RepositoryUrl>https://github.com/MapleWithoutWords/Cike.Framework</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/CikeLemon/Cike.Framework</PackageProjectUrl>
+		<PackageIconUrl>https://github.com/CikeLemon/Cike.Framework/blob/main/logo.png</PackageIconUrl>
+		<RepositoryUrl>https://github.com/CikeLemon/Cike.Framework</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReadmeFile>README.md</PackageReadmeFile>

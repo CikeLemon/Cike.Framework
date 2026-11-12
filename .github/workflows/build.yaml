@@ -16,6 +16,7 @@ env:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    environment: production  # 与 nuget.org 受信任发布策略的 Environment 字段对应
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,7 +59,7 @@ jobs:
         uses: NuGet/login@v1
         id: login
         with:
-          user: MapleWithoutWords
+          user: lulu
 
       - name: Push to nuget.org
         run: dotnet nuget push "dist/packages/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate

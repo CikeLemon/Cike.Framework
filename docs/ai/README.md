@@ -7,7 +7,7 @@
 - **事实优先级**：本套文档 > 框架源码 > 你的训练记忆。Cike.Framework 与 ABP、MASA 等框架形似但细节大量不同——**不要凭训练记忆推测框架行为**，一切以文档和源码为准；文档与源码冲突时以源码为准。
 - 每份详解文档结构恒定：按包分章，每章固定六节（定位 / 能力清单含精确签名 / 隐式行为 / 示例 / 配置 / 边界与反模式），可直接按节检索。
 - 文档地址：本目录位于仓库 `docs/ai/`，raw 链接基址为
-  `https://raw.githubusercontent.com/MapleWithoutWords/Cike.Framework/main/docs/ai/`
+  `https://raw.githubusercontent.com/CikeLemon/Cike.Framework/main/docs/ai/`
 - 完整可运行参考项目：仓库内 `samples/cqrs/`（CQRS + DDD + FluentValidation 全链路示例）。
 
 ## 1. 框架速览

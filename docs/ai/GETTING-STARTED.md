@@ -11,7 +11,7 @@
 
 本项目基于 Cike.Framework 开发。开始任何框架相关编码前，先抓取并遵循：
 
-    https://raw.githubusercontent.com/MapleWithoutWords/Cike.Framework/main/docs/ai/README.md
+    https://raw.githubusercontent.com/CikeLemon/Cike.Framework/main/docs/ai/README.md
 
 按其路由表按需抓取同目录下的能力域详解文档（如 data-access.md、events-cqrs.md）。
 框架行为以文档与源码为准，不要凭训练记忆推测；文档与源码冲突时以源码为准。
