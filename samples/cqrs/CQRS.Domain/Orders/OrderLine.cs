@@ -1,5 +1,5 @@
 using CQRS.Domain.ValueObjects;
-using Cike.Domain.Entities;
+using Cike.Data.Domain.Entities;
 
 namespace CQRS.Domain.Orders;
 

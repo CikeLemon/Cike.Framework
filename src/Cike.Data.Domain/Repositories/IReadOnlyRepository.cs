@@ -1,6 +1,4 @@
-using System.Linq.Expressions;
-
-namespace Cike.Domain.Repositories;
+namespace Cike.Data.Domain.Repositories;
 
 public interface IReadOnlyRepository<TEntity, TKey>
     where TEntity : class, IEntity<TKey>

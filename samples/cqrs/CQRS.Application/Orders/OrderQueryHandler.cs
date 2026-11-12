@@ -4,10 +4,10 @@ using CQRS.Application.Orders.Queries;
 using CQRS.Domain.Orders;
 using Cike.Contracts.EntityDtos;
 using Cike.Contracts.Extensions;
-using Cike.Domain.Repositories;
 using Cike.EventBus.Local;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Cike.Data.Domain.Repositories;
 
 namespace CQRS.Application.Orders;
 

@@ -1,4 +1,6 @@
-﻿namespace Cike.Data.Extensions;
+﻿using Cike.Data.Domain.Repositories;
+
+namespace Cike.Data.Extensions;
 
 public static class IServiceCollectionDbContextExtensions
 {

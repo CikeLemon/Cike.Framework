@@ -1,3 +1,5 @@
+using Cike.Data.Domain.Repositories;
+
 namespace Cike.Data.EFCore.Tests;
 
 /// <summary>

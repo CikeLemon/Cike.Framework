@@ -1,4 +1,4 @@
-﻿namespace Cike.Domain.Entities;
+﻿namespace Cike.Data.Domain.Entities;
 
 public class AuditedEntity<TKey, TUserId> : Entity<TKey>, IAuditedEntity<TUserId> where TUserId : struct
 {

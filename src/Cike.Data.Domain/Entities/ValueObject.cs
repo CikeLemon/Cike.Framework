@@ -1,4 +1,4 @@
-﻿namespace Core.Plugin.Ddd.Domain;
+﻿namespace Cike.Data.Domain.Entities;
 
 public abstract class ValueObject : IEquatable<ValueObject>
 {
