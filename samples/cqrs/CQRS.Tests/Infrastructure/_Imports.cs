@@ -8,7 +8,7 @@ global using CQRS.Application.Orders.Queries;
 global using CQRS.Domain.Buyers;
 global using CQRS.Domain.Orders;
 global using CQRS.Domain.ValueObjects;
-global using Cike.Domain.Repositories;
+global using Cike.Data.Domain.Repositories;
 global using Cike.EventBus;
 global using Cike.EventBus.Local;
 global using Cike.Uow;

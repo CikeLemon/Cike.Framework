@@ -1,4 +1,4 @@
-﻿namespace Cike.Domain;
+﻿namespace Cike.Data.Domain;
 
 public static class EntityHelper
 {

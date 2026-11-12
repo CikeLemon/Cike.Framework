@@ -27,7 +27,7 @@ public static class IServiceCollectionDbContextExtensions
         foreach (var entityType in GetEntityTypes(typeof(TDbContext)))
         {
             // 领域层静态 EntityHelper（Cike.Domain），与本项目 internal EntityHelper 同名，全限定消歧
-            var primaryKeyType = Cike.Domain.EntityHelper.FindPrimaryKeyType(entityType);
+            var primaryKeyType = Domain.EntityHelper.FindPrimaryKeyType(entityType);
             if (primaryKeyType == null)
             {
                 continue;

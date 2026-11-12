@@ -1,5 +1,5 @@
 using Cike.Core.Modularity;
-using Cike.Domain;
+using Cike.Data.Domain;
 using CQRS.Domain.Shared;
 
 namespace CQRS.Domain;
