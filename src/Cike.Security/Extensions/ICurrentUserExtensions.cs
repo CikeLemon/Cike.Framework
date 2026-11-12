@@ -1,4 +1,6 @@
-﻿namespace Cike.Auth.Extensions;
+﻿using Cike.Security;
+
+namespace Cike.Security.Extensions;
 
 public static class ICurrentUserExtensions
 {

@@ -1,4 +1,4 @@
-﻿namespace Cike.Auth;
+﻿namespace Cike.Security;
 
 public interface ICurrentUser
 {
@@ -8,7 +8,7 @@ public interface ICurrentUser
 
     string? Name { get; }
 
-    string? SurName { get; }
+    string? NickName { get; }
 
     string? PhoneNumber { get; }
 

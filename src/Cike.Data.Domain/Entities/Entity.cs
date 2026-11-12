@@ -1,4 +1,4 @@
-﻿namespace Cike.Domain.Entities;
+﻿namespace Cike.Data.Domain.Entities;
 
 public abstract class Entity<TKey> : IEntity<TKey>
 {

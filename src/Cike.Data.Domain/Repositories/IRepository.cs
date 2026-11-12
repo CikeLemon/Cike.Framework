@@ -1,4 +1,4 @@
-namespace Cike.Domain.Repositories;
+namespace Cike.Data.Domain.Repositories;
 
 /// <summary>
 /// 仓储完整接口：读（IReadOnlyRepository）+ 写（IBasicRepository）的合并标记接口。

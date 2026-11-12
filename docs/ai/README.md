@@ -41,8 +41,7 @@ POST /api/v1/Orders
 | HTTP 接口层 | [http-api.md](./http-api.md) | Cike.AspNetCore.MinimalAPIs、Cike.AspNetCore.Swagger、Cike.FluentValidation | 自动路由、全局 HTTP 行为、Swagger、参数校验 |
 | 数据访问 | [data-access.md](./data-access.md) | Cike.Data、Cike.Data.Domain、Cike.Data.EFCore、.MySql、.SqlServer、Cike.Uow | 实体基类、仓储、DbContext 自动化、事务边界、方言 |
 | 事件与 CQRS | [events-cqrs.md](./events-cqrs.md) | Cike.EventBus、.Local、.Adaptive、Cike.Cqrs | Command/Query 用例、本地事件、领域事件、Saga 补偿、后台事件 |
-| 认证与当前用户 | [auth.md](./auth.md) | Cike.Auth | ICurrentUser/ICurrentTenant 上下文、租户解析中间件 |
-| Token 校验与端点权限 | [openiddict.md](./openiddict.md) | Cike.OpenIddict | OpenIddict Validation 资源服务器校验、[RequirePermission] 端点权限、IPermissionChecker |
+| 当前用户与多租户 | [auth.md](./auth.md) | Cike.Security、Cike.MultiTenancy | ICurrentUser（Claims 投影）、ICurrentTenant（AsyncLocal 租户）、租户解析中间件 |
 | 缓存 | [caching.md](./caching.md) | Cike.Caching | Redis 分布式缓存、内存+Redis 两级缓存、跨实例失效 |
 | 锁 | [locks.md](./locks.md) | Cike.Locks、Cike.Locks.DistributedRedis | 进程内锁、Redis 分布式锁 |
 | Id 生成 | [id-generation.md](./id-generation.md) | Cike.UniversalId | 雪花 Id、顺序 Guid（业务层通常无需手动调用） |
@@ -54,8 +53,7 @@ POST /api/v1/Orders
 - "我要实现一个业务用例（写/查）" → [事件与 CQRS](./events-cqrs.md)
 - "我要建实体/表、写仓储查询、开事务" → [数据访问](./data-access.md)
 - "聚合根状态变化后要联动别的聚合" → [事件与 CQRS](./events-cqrs.md)（领域事件）
-- "怎么拿到当前登录用户/租户" → [认证与当前用户](./auth.md)
-- "我要接 token 校验 / 给端点加权限要求" → [Token 校验与端点权限](./openiddict.md)
+- "怎么拿到当前登录用户/租户" → [当前用户与多租户](./auth.md)
 - "加缓存/加分布式锁" → [缓存](./caching.md) / [锁](./locks.md)
 - "新建项目怎么组装模块、怎么注册服务" → [框架内核](./framework-core.md) + 本文档第 3 节
 
@@ -105,7 +103,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 | 4 | 雪花/顺序 Guid Id 生成 | `IEntity<long>.Id == 0` 的实体被跟踪（Add）；`IEntity<Guid>` 自动顺序 Guid | 数据访问 / Id 生成 |
 | 5 | 审计字段填充 | 实体实现 `IAuditedEntity`：Added 填 CreatedAt/CreatedBy，Modified 填 UpdatedAt/UpdatedBy | 数据访问 |
 | 6 | 软删 | 实体实现 `ISoftDelete`：删除变 `IsDeleted=true`，查询自动过滤已删（Set-based 批量删除 `ExecuteDeleteAsync` 同样自动改写软删；领域事件/客户端级联是例外，见数据访问） | 数据访问 |
-| 7 | 多租户过滤 | 实体实现 `IMultiTenant`：插入自动填 TenantId，查询自动按 `ICurrentTenant.Id` 过滤（`CurrentTenant` 来源是 `TenantMiddleware`，未启用 `UseMultiTenant()` 时恒为 0） | 数据访问 / 认证 |
+| 7 | 多租户过滤 | 实体实现 `IMultiTenant`：插入自动填 TenantId，查询自动按 `ICurrentTenant.Id` 过滤（`CurrentTenant` 来源是 `TenantMiddleware`，未启用 `UseMultiTenant()` 时恒为 0） | 数据访问 / 当前用户与多租户 |
 | 8 | 事务包裹 | 每次**根** `PublishAsync`（嵌套发布共享同一事务）：事件树成功 Commit / 失败 Rollback | 事件与 CQRS |
 | 9 | 领域事件入队/发布 | 聚合根 `AddDomainEvent(...)`：SaveChanges 入队，UoW Commit 提交前依次发布 | 事件与 CQRS |
 | 10 | 业务异常转 400 | 抛 `UserFriendlyException`/`BusinessException` → 中间件返回 BadRequest + 消息文本 | HTTP 接口层 |
@@ -115,8 +113,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 | 14 | Saga 补偿 | `[LocalEventHandler(IsCancel = true)]`：handler 失败（重试耗尽、非 Ignore）时按 Order **升序**执行 `Order ≤ 失败步骤`（Throw 为 `≤ Order-1`）的取消 handler，然后抛出原异常 | 事件与 CQRS |
 | 15 | Validator 自动注册 | 依赖 `CikeFluentValidationModule`：全部已加载模块程序集的 `AbstractValidator<T>` 自动注册 | HTTP 接口层 |
 | 16 | 缓存 key 格式化 | 默认 `TypeName` 模式：实际 key = `{类型简单名}.{key}`（如 `User.42`，不含命名空间）；L2 Redis 端为 GZip 压缩的 Hash，redis-cli 不可直读 | 缓存 |
-| 17 | 端点默认要求认证 | 全局 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 true）是**总开关**：关 → 不挂认证中间件且所有端点不加 `RequireAuthorization`；开 → 端点级 `RouteOptions.EnabledAuthorization`（默认 true）逐服务决定是否加；未注册认证方案时是 500 而非 401。注意：宿主注册了认证/授权服务（如引用 Cike.OpenIddict）时，WebApplication 会自动挂载认证/授权中间件，"关 → 不挂中间件"不再成立，此时总开关只免掉端点默认认证与权限特性（见 18） | HTTP 接口层 |
-| 18 | OpenIddict 校验与端点权限 | 依赖 `CikeOpenIddictModule`：注册校验方案（Issuer 必配否则启动抛异常）、claim 键名自动对齐 CikeClaimTypes；`[RequirePermission]` 端点特性由 `IPermissionChecker` 判定（stub 恒 false → 一律 403，判定逻辑框架内补全前全拒绝）；全局总开关关闭时权限策略降级为允许模式，端点级开关不绕过显式权限特性 | Token 校验与端点权限 |
+| 17 | 端点默认要求认证 | 全局 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 true）是**总开关**：关 → 不挂认证中间件且所有端点不加 `RequireAuthorization`；开 → 端点级 `RouteOptions.EnabledAuthorization`（默认 true）逐服务决定是否加；未注册认证方案时是 500 而非 401 | HTTP 接口层 |
 
 ## 5. 跨模块最佳实践与反模式
 
@@ -154,6 +151,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 
 ## 6. 废弃与现状说明
 
-- **Cike.MultiTenant 已废弃，勿用**：不是合法模块（未继承 `CikeModule`）、`Guid?` 租户 Id 与框架现行 `long` 冲突、命名空间与 `Cike.Auth` 的同名类型冲突。现行多租户能力全部在 [Cike.Auth](./auth.md)。
+- **Cike.Auth 已拆分删除**：用户上下文移入 `Cike.Security`，租户上下文与 `TenantMiddleware` 移入 `Cike.MultiTenancy`；`ICurrentUser.SurName` 改为 `NickName`，claim/租户键名默认值改为 OIDC 短键（`sub`、`role`、`tenant_id`……），迁移细节见 [当前用户与多租户](./auth.md)。
+- **Cike.OpenIddict 已删除**：框架当前不提供 token 校验封装与 `[RequirePermission]` 端点权限特性，认证由宿主自行注册（如 JwtBearer）。
 - **Cike.Localization 现状使用率低，且实现不完整**：`CikeStringLocalizer`/`Factory` 为存根（抛 `NotImplementedException`），框架内无任何代码消费其资源贡献模型；现有业务项目多为中文硬编码消息。新项目除非明确需要多语言并自行补全实现，建议沿用团队惯例。
 - 文档随 `main` 分支演进，远程链接永远读到最新版。

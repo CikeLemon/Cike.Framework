@@ -1,4 +1,6 @@
-﻿namespace Cike.Data.Domain.AggregateRoots;
+﻿using Cike.Data.Domain.Entities;
+
+namespace Cike.Data.Domain.AggregateRoots;
 
 public abstract class AggregateRoot<TKey> : Entity<TKey>, IAggregateRoot<TKey>
 {

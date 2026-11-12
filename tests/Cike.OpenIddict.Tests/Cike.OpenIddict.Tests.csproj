@@ -30,7 +30,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\Cike.OpenIddict\Cike.OpenIddict.csproj" />
 		<ProjectReference Include="..\..\src\Cike.AspNetCore.MinimalAPIs\Cike.AspNetCore.MinimalAPIs.csproj" />
 	</ItemGroup>
 

@@ -28,7 +28,7 @@ Cike.Uow             事务边界抽象：IUnitOfWork / UnitOfWorkOptions（仅�
 |---|---|---|
 | Cike.Data | 契约层：实体契约接口、`[ConnectionStringName]` + 连接串解析、`IDataFilter` 数据过滤器 | `CikeEventBusModule`（Cike.EventBus） |
 | Cike.Data.Domain | 实体基类继承链、聚合根、值对象、三层仓储接口 | `CikeDataModule` |
-| Cike.Data.EFCore | `CikeDbContext<T>` 自动化、`EfCoreRepository`、`EFCoreUnitOfWork`、`AddCikeDbContext`、DbContext 工厂 | `CikeAuthModule`、`CikeDomainModule`、`CikeUniversalIdModule`、`CikeUowModule`、`CikeEventBusAdaptiveModule` |
+| Cike.Data.EFCore | `CikeDbContext<T>` 自动化、`EfCoreRepository`、`EFCoreUnitOfWork`、`AddCikeDbContext`、DbContext 工厂 | `CikeSecurityModule`、`CikeMultiTenancyModule`、`CikeDomainModule`、`CikeUniversalIdModule`、`CikeUowModule`、`CikeEventBusAdaptiveModule` |
 | Cike.Data.EFCore.MySql | MySQL（Pomelo 8.0.2）方言：`UseMySQL` + SplitQuery + `SequentialAsString` 默认 | `CikeDataEFCoreModule` |
 | Cike.Data.EFCore.SqlServer | SQL Server（EF 8.0.5）方言：`UseSqlServer` + SplitQuery + `SequentialAtEnd` 默认 | `CikeDataEFCoreModule` |
 | Cike.Uow | 工作单元契约：`IUnitOfWork`、`UnitOfWorkOptions`、`UnitOfWorkCommitState` | 无 |
@@ -38,7 +38,7 @@ Cike.Uow             事务边界抽象：IUnitOfWork / UnitOfWorkOptions（仅�
 ```
 Cike.EventBus ──→ Cike.Data ──→ Cike.Data.Domain ──→ Cike.Data.EFCore ──→ { .MySql, .SqlServer }
 Cike.Uow（独立，无依赖）────────────────────────────↗
-Cike.Auth / Cike.UniversalId / Cike.EventBus.Adaptive ───────────────────↗
+Cike.Security / Cike.MultiTenancy / Cike.UniversalId / Cike.EventBus.Adaptive ──→ Cike.Data.EFCore
 ```
 
 命名空间速查（包名与命名空间不一致，AI 高频踩坑点）：
@@ -334,8 +334,8 @@ public abstract class CikeDbContext<TDbContext> : DbContext, IScopedDependency w
 {
     public CikeDbContext(DbContextOptions<TDbContext> options, IServiceProvider serviceProvider);
     protected IServiceProvider CurrentServiceProvider { get; }   // 无 IServiceProvider 构造时访问即抛异常
-    protected ICurrentUser CurrentUser { get; }                  // Cike.Auth
-    protected ICurrentTenant CurrentTenant { get; }              // Cike.Auth
+    protected ICurrentUser CurrentUser { get; }                  // Cike.Security
+    protected ICurrentTenant CurrentTenant { get; }              // Cike.MultiTenancy
     public IDataFilter DataFilter { get; }
     public UnitOfWorkOptions UnitOfWorkOptions { get; }
     protected virtual bool IsMultiTenantFilterEnabled { get; }   // => DataFilter.IsEnabled<IMultiTenant>()
@@ -543,7 +543,7 @@ await unitOfWork.CommitAsync();   // 保存 + 发布领域事件 + 提交事务
 - `UpdateAsync(entity)` 对游离实体是 **Attach + Modified 全量更新**（所有列都写）；不是差量更新。
 - 业务配置里调用 `HasQueryFilter` 会整体替换框架过滤器（EF Core 语义）——自定义过滤器需自行并入软删/租户条件，或避免使用。
 - 未实现 `IEntity` 的 DbSet 实体：不参与约定配置（无审计/软删/租户自动化）、不注册默认仓储。
-- 软删语义：Deleted 条目实现 `ISoftDelete` 即转软删（含被级联标记为 Deleted 的子实体）；未实现 `ISoftDelete` 的子实体被**硬删**；OwnsOne 值对象随主体保留。多租户过滤器读 `CurrentTenant.Id`（`ICurrentTenantAccessor`，AsyncLocal），与 TenantId 写入同源——不调用 `UseMultiTenant()` 时恒为 0，见 [认证与当前用户](./auth.md)。
+- 软删语义：Deleted 条目实现 `ISoftDelete` 即转软删（含被级联标记为 Deleted 的子实体）；未实现 `ISoftDelete` 的子实体被**硬删**；OwnsOne 值对象随主体保留。多租户过滤器读 `CurrentTenant.Id`（`ICurrentTenantAccessor`，AsyncLocal），与 TenantId 写入同源——不调用 `UseMultiTenant()` 时恒为 0，见 [当前用户与多租户](./auth.md)。
 - 多 DbContext：`IUnitOfWork` 注册用 `AddScoped`（非 TryAdd），后注册者胜出；`CikeDbContextOptions` 是**全局单委托**——多库场景需在一个 `Configure` 委托内按 `ctx.ConnectionStringName` 分支；默认仓储跨 DbContext 冲突时先注册者保留，需要特定实现写自定义仓储。
 - `BeginAsNoTracking` 是仓储实例上的可变标志：跟踪行为在 `GetQueryable()` 调用时固化——在 using 块外创建的 IQueryable 仍保持跟踪查询。
 - DbContext 所在程序集必须有模块类被模块树加载，否则 DbContext 不被约定注册、无法解析。

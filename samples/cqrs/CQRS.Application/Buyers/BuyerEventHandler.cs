@@ -1,7 +1,7 @@
 using CQRS.Domain.Buyers;
 using CQRS.Domain.Orders.Events;
-using Cike.Domain.Repositories;
 using Cike.EventBus.Local;
+using Cike.Data.Domain.Repositories;
 
 namespace CQRS.Application.Buyers;
 

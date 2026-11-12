@@ -1,10 +1,6 @@
-﻿using Cike.Auth.Middlewares;
-using Cike.Core.Modularity;
-using Cike.Core.ObjectAccessor;
+﻿using Cike.Core.ObjectAccessor;
 using Cike.Core.Threading;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
+using Cike.MultiTenancy.Middlewares;
 using Microsoft.Extensions.Hosting;
 
 namespace Cike.AspNetCore.MinimalAPIs.Extensions;

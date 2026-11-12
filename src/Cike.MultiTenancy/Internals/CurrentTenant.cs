@@ -1,8 +1,6 @@
-﻿using Cike.Core;
+﻿namespace Cike.MultiTenancy.Internals;
 
-namespace Cike.Auth.MultiTenant;
-
-public class CurrentTenant(ICurrentTenantAccessor _currentTenantAccessor) : ICurrentTenant, ITransientDependency
+internal class CurrentTenant(ICurrentTenantAccessor _currentTenantAccessor) : ICurrentTenant, ITransientDependency
 {
     public long Id { get => _currentTenantAccessor.GetTenantId(); }
 

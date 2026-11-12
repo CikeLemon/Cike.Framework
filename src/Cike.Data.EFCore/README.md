@@ -7,7 +7,7 @@ EF Core 集成核心：`CikeDbContext` 基类（一大堆自动化）、默认/�
 ### `CikeDbContext<TDbContext>` —— 业务 DbContext 基类
 - `public class XxxDbContext : CikeDbContext<XxxDbContext>`，**泛型参数必须是自身**；构造函数必须保留 `(DbContextOptions<T>, IServiceProvider)` 双参
 - 自动化（全部在 ChangeTracker 钩子里，业务代码禁止手工做）：
-  - 新增：雪花/顺序 Guid Id、`TenantId`（`IMultiTenant`，**跟踪时**按当前用户写入，`Add` 之后切租户不会改）、`CreatedAt/CreatedBy`
+  - 新增：雪花/顺序 Guid Id、`TenantId`（`IMultiTenant`，**跟踪时**按当前租户（`ICurrentTenant`，AsyncLocal）写入，`Add` 之后切租户不会改）、`CreatedAt/CreatedBy`
   - 修改：`UpdatedAt/UpdatedBy`、`ConcurrencyStamp` 刷新
   - 删除：软删（`Reload + IsDeleted=true`）
   - 全局查询过滤器：`IMultiTenant` → 按租户、`ISoftDelete` → 排除已删（由 `IDataFilter` 开关，默认开）
@@ -62,7 +62,7 @@ EF Core 集成核心：`CikeDbContext` 基类（一大堆自动化）、默认/�
 ## 模块信息
 
 - 模块类：`CikeDataEFCoreModule`（开启 Snowflake `IsEnable`）
-- 直接依赖：`CikeAuthModule`、`CikeDomainModule`、`CikeUniversalIdModule`、`CikeUowModule`、`CikeEventBusAdaptiveModule`
+- 直接依赖：`CikeSecurityModule`、`CikeMultiTenancyModule`、`CikeDomainModule`、`CikeUniversalIdModule`、`CikeUowModule`、`CikeEventBusAdaptiveModule`
 
 ## 已知技术债
 

@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 
-namespace Cike.Auth.Extensions;
+namespace Cike.Security.Extensions;
 
 public static class ClaimsPrincipalExtensions
 {

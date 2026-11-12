@@ -22,13 +22,13 @@
 
 ### 宿主引导扩展
 - `WebApplication.InitializeApplicationAsync()`：触发所有模块 `InitializeAsync` + 注册 Shutdown 钩子
-- `app.UseMultiTenant()`：挂载 `TenantMiddleware`
+- `app.UseMultiTenant()`：挂载 `Cike.MultiTenancy` 的 `TenantMiddleware`（不自动挂载；在宿主模块 `InitializeAsync` 中调用即位于认证中间件之后）
 - `ApplicationInitializationContext.GetApplicationBuilder()` / `GetEndpointRouteBuilder()`
 
 ## 模块信息
 
 - 模块类：`CikeAspNetCoreMinimalApiModule`
-- 直接依赖：`CikeAuthModule`
+- 直接依赖：`CikeMultiTenancyModule`（**不**带入 `CikeSecurityModule`；需要 `ICurrentUser` 又不依赖 `CikeDataEFCoreModule` 时宿主自行 DependsOn）
 
 ## 更多
 

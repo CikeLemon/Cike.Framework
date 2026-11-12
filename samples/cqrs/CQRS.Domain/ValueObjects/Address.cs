@@ -1,4 +1,4 @@
-using Core.Plugin.Ddd.Domain;
+using Cike.Data.Domain.Entities;
 
 namespace CQRS.Domain.ValueObjects;
 

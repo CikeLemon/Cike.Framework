@@ -1,4 +1,4 @@
-namespace Cike.Domain.Repositories;
+namespace Cike.Data.Domain.Repositories;
 
 /// <summary>
 /// 基础仓储：在只读能力之上追加增删改。

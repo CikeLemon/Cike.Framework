@@ -2,8 +2,8 @@ using CQRS.Application.Orders.Commands;
 using CQRS.Application.Contracts.Orders.Dtos;
 using CQRS.Domain.Orders;
 using CQRS.Domain.ValueObjects;
-using Cike.Domain.Repositories;
 using Cike.EventBus.Local;
+using Cike.Data.Domain.Repositories;
 
 namespace CQRS.Application.Orders;
 

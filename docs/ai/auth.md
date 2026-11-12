@@ -1,83 +1,181 @@
-# 认证与当前用户
+# 当前用户与多租户
 
 ## 域定位
 
-提供"当前用户"（`ICurrentUser`，JWT Claims 的只读投影）与"当前租户"（`ICurrentTenant`，`AsyncLocal<long>` 环境值）两个请求上下文抽象，以及把请求解析为租户 Id 的 `TenantMiddleware`——供业务代码读取当前身份，供数据访问层的多租户查询过滤与插入自动填值消费（见 [数据访问](./data-access.md)）。
+提供两个互相独立的请求上下文抽象：
 
-**上下文不是认证**：本域不注册 AuthenticationHandler、不签发/校验 token——JWT 的注册与配置（`AddAuthentication().AddJwtBearer(...)` + `TokenValidationParameters`）完全由业务宿主自己写；需要 OpenIddict token 校验与端点权限特性时引用 [Cike.OpenIddict](./openiddict.md)（资源服务器能力域，产出本域消费的 Claims）。端点 401/403 的产生与认证开关见 [HTTP 接口层](./http-api.md)。本域只**消费**认证结果（`HttpContext.User` 的 Claims）。
+- "当前用户"（`ICurrentUser`，`Cike.Security` 包）：JWT Claims 的只读投影，供业务代码读取当前身份、供数据层填审计字段。
+- "当前租户"（`ICurrentTenant`，`Cike.MultiTenancy` 包）：`AsyncLocal<long>` 里的环境值。`TenantMiddleware` 把请求解析成租户 Id 写进去，数据访问层的多租户查询过滤和插入自动填值读的就是它（见 [数据访问](./data-access.md)）。
 
-什么时候不用：只做 token 签发/校验直接用 ASP.NET Core Authentication（`Microsoft.AspNetCore.Authentication.JwtBearer`），不需要本包；不读当前用户/租户、也未用 `IMultiTenant` 实体的项目不必引入。
+**上下文不是认证**：本域不注册 AuthenticationHandler，也不签发、不校验 token。JWT 的注册与配置（`AddAuthentication().AddJwtBearer(...)` + `TokenValidationParameters`）完全由业务宿主自己写。框架当前不提供端点级权限特性。端点 401/403 怎么产生、认证开关怎么用，见 [HTTP 接口层](./http-api.md)。本域只**消费**认证结果，也就是 `HttpContext.User` 里的 Claims。
+
+什么时候不用：只做 token 签发或校验时，直接用 ASP.NET Core Authentication（`Microsoft.AspNetCore.Authentication.JwtBearer`）。项目不读当前用户、不读当前租户、也没用 `IMultiTenant` 实体时，不必显式引入这两个包。
 
 ## 覆盖的包
 
 | 包 | 目录 | 定位 |
 |---|---|---|
-| `Cike.Auth` | `src/Cike.Auth`（net8.0） | `ICurrentUser`/`CurrentUserContext`（Claims 投影）、`ICurrentTenant`/`ICurrentTenantAccessor`（AsyncLocal 租户）、`CikeClaimTypes`（claim/请求键名约定）、`TenantMiddleware`（租户解析中间件）；模块类 `CikeAuthModule` |
+| `Cike.Security` | `src/Cike.Security` | `ICurrentUser`/`CurrentUserContext`（Claims 投影）、`CikeClaimTypes`（claim 键名约定）、`ClaimsPrincipalExtensions`/`ICurrentUserExtensions`；模块类 `CikeSecurityModule` |
+| `Cike.MultiTenancy` | `src/Cike.MultiTenancy` | `ICurrentTenant`/`ICurrentTenantAccessor`（AsyncLocal 租户）、`TenantMiddleware`（租户解析中间件）、`CikeTenantConsts`（租户键名常量）；模块类 `CikeMultiTenancyModule` |
 
-包级依赖：项目 `Cike.Core`（模块系统、`DisposeAction`）+ 包 `Microsoft.AspNetCore.Http.Abstractions` 2.2.0。模块级：`CikeAuthModule` 无 `[DependsOn]`。注意：`UseMultiTenant()` 扩展方法**不在本包**，在 `Cike.AspNetCore.MinimalAPIs`（该模块 `[DependsOn(typeof(CikeAuthModule))]`，并负责注册 `AddHttpContextAccessor()`）。
+两包的包级依赖一样：项目 `Cike.Core`（模块系统、`DisposeAction`）加包 `Microsoft.AspNetCore.Http.Abstractions` 2.2.0。**两包互不引用**，两个模块类都没有 `[DependsOn]`。
 
-## Cike.Auth
+谁把它们带进模块图：
+
+| 依赖方 | 带入 |
+|---|---|
+| `CikeAspNetCoreMinimalApiModule` | 只带 `CikeMultiTenancyModule`，**不带** `CikeSecurityModule` |
+| `CikeDataEFCoreModule` | `CikeSecurityModule` 和 `CikeMultiTenancyModule` 都带 |
+
+`UseMultiTenant()` 扩展方法**不在** `Cike.MultiTenancy`，在 `Cike.AspNetCore.MinimalAPIs`。`AddHttpContextAccessor()` 也由 MinimalAPIs 模块负责注册。
+
+> 历史：两包由原 `Cike.Auth` 拆分而来（用户上下文 → `Cike.Security`，租户 → `Cike.MultiTenancy`），`Cike.Auth` 包与 `CikeAuthModule` 已删除。迁移时改命名空间（`Cike.Auth` → `Cike.Security`，`Cike.Auth.MultiTenant` → `Cike.MultiTenancy`），`ICurrentUser.SurName` 改为 `NickName`，claim/租户键名默认值也变了（见下文 `CikeClaimTypes`、`CikeTenantConsts`）。
+
+## Cike.Security
 
 ### 定位
 
-- `ICurrentUser`：`HttpContext.User`（认证产出的 ClaimsPrincipal）的只读投影，singleton 实现——任意层注入读"当前登录用户"。
-- `ICurrentTenant`：`AsyncLocal<long>` 环境租户值，由 `TenantMiddleware`（请求级）或 `Change()`（代码级）设置——数据访问层的租户过滤与插入自动填值消费的是**它**，不是 `ICurrentUser.TenantId`。
-- `TenantMiddleware`：把请求中的租户 Id（Claims → Header → Cookie → Query）写入 `ICurrentTenant`，覆盖整个后续管线。
-- 边界：不做认证、不签发/校验 token、没有"以某用户身份执行"的 API——认证配置由业务宿主自行注册，本包只读 Claims。
+- `ICurrentUser` 是 `HttpContext.User`（认证产出的 ClaimsPrincipal）的只读投影，实现是 singleton，任意层注入即可读"当前登录用户"。
+- `CikeClaimTypes` 是 `ICurrentUser` 读取 claim 时用的键名约定，启动期可以改写。
+- 边界：不做认证，不签发、不校验 token，也没有"以某用户身份执行"的 API。本包只读 Claims。
 
 ### 能力清单
 
-命名空间一览：`Cike.Auth`（`ICurrentUser`/`CurrentUserContext`/`CikeClaimTypes`/`CikeAuthModule`）、`Cike.Auth.MultiTenant`（`ICurrentTenant`/`CurrentTenant`/`ICurrentTenantAccessor`/`CurrentTenantAccessor`）、`Cike.Auth.Middlewares`（`TenantMiddleware`）、`Cike.Auth.Extensions`（`ICurrentUserExtensions`/`ClaimsPrincipalExtensions`）。
+命名空间：
+
+- `Cike.Security`：`ICurrentUser`、`CikeClaimTypes`、`CikeSecurityModule`
+- `Cike.Security.Internals`：`CurrentUserContext`（public 类）
+- `Cike.Security.Extensions`：`ICurrentUserExtensions`、`ClaimsPrincipalExtensions`
 
 **`ICurrentUser`（当前用户）**
 
 ```csharp
 public interface ICurrentUser
 {
-    string? Id { get; }           // claim 键 CikeClaimTypes.UserId（默认 ClaimTypes.NameIdentifier），取首个匹配
-    string? UserName { get; }     // 默认键 ClaimTypes.Name
-    string? Name { get; }         // 默认键 ClaimTypes.GivenName
-    string? SurName { get; }      // 默认键 ClaimTypes.Surname
+    string? Id { get; }           // claim 键 CikeClaimTypes.UserId（默认 "sub"），取首个匹配
+    string? UserName { get; }     // 默认键 "username"
+    string? Name { get; }         // 默认键 "name"
+    string? NickName { get; }     // 默认键 "nickname"
     string? PhoneNumber { get; }  // 默认键 "phone_number"
-    string? Email { get; }        // 默认键 ClaimTypes.Email
-    long? TenantId { get; }       // 默认键 "tenantid"；long.TryParse 失败/缺失 → null
-    string[] Roles { get; }       // 默认键 ClaimTypes.Role；全部匹配值 Distinct；无 → 空数组
-    bool IsAuthorization { get; } // HttpContext.User.Identity?.IsAuthenticated ?? true
+    string? Email { get; }        // 默认键 "email"
+    long? TenantId { get; }       // 默认键 "tenant_id"；long.TryParse 失败或缺失 → null
+    string[] Roles { get; }       // 默认键 "role"；全部匹配值 Distinct；无 → 空数组
+    bool IsAuthorization { get; } // HttpContext.User.Identity?.IsAuthenticated ?? false
 }
 ```
 
-- 实现 `CurrentUserContext : ICurrentUser, ISingletonDependency`：singleton，构造器 `(IHttpContextAccessor)`，经 `IHttpContextAccessor.HttpContext?.User` 读 Claims。除接口成员外额外公开 `Claim[] FindClaims(string claimType)`。
-- 每个 string 属性取**首个**匹配 claim；同一 claim 类型出现多次只读第一个（`Roles` 例外，读全部）。
-- `IsAuthorization` 的两条特殊行为见"边界与反模式"。
+- 实现是 `CurrentUserContext : ICurrentUser, ISingletonDependency`：singleton，构造器参数 `(IHttpContextAccessor)`，通过 `IHttpContextAccessor.HttpContext?.User` 读 Claims。除接口成员外，它还额外公开 `Claim[] FindClaims(string claimType)`。全部属性都是 `virtual`。
+- 每个 string 属性只取**第一个**匹配的 claim，同一 claim 类型出现多次时只读第一个。`Roles` 例外，读全部。
+- `IsAuthorization` 的特殊行为见"边界与反模式"。
 
-**`ICurrentUserExtensions`（`Cike.Auth.Extensions`）**
+**`ICurrentUserExtensions`（`Cike.Security.Extensions`）**
 
 | 扩展 | 签名 | 行为 |
 |---|---|---|
-| `GetLongId` | `long GetLongId(this ICurrentUser)` | `long.Parse(Id!)`——`Id` 为 null（未认证/后台线程）或非数字直接抛异常 |
-| `GetGuidId` | `Guid GetGuidId(this ICurrentUser)` | `Guid.Parse(Id!)`——同上 |
+| `GetLongId` | `long GetLongId(this ICurrentUser)` | `long.Parse(Id!)`。`Id` 为 null（未认证、后台线程）或不是数字时直接抛异常 |
+| `GetGuidId` | `Guid GetGuidId(this ICurrentUser)` | `Guid.Parse(Id!)`，同上 |
 
-**`ClaimsPrincipalExtensions`（对任意 `ClaimsPrincipal` 的读取扩展；`TenantMiddleware` 内部即用）**
+**`ClaimsPrincipalExtensions`（`Cike.Security.Extensions`，可用于任意 `ClaimsPrincipal`）**
 
 | 扩展 | 签名 | 失败/缺失行为 |
 |---|---|---|
 | `FindClaims` | `Claim[] FindClaims(this ClaimsPrincipal, string claimType)` | 空数组 |
 | `GetValue` | `string? GetValue(this ClaimsPrincipal, string claimType)` | null |
 | `GetGuidValue` | `Guid? GetGuidValue(this ClaimsPrincipal, string key)` | null |
-| `GetLongValue` | `long GetLongValue(this ClaimsPrincipal, string key)` | **0**（非 null——与 `ICurrentUser.TenantId` 的 `long?` 语义不同） |
+| `GetLongValue` | `long GetLongValue(this ClaimsPrincipal, string key)` | 返回 **0**，不是 null（和 `ICurrentUser.TenantId` 的 `long?` 语义不同） |
 
-**`CikeClaimTypes`（claim / 请求键名约定；全部 `static string { get; set; }`，启动期可改写）**
+**`CikeClaimTypes`（claim 键名约定）**
+
+全部属性都是 `static string { get; set; }`，启动期可以改写。默认值是 OIDC 风格的短键：
 
 | 属性 | 默认值 | 消费点 |
 |---|---|---|
-| `UserId` | `ClaimTypes.NameIdentifier` | `ICurrentUser.Id` |
-| `UserName` | `ClaimTypes.Name` | `ICurrentUser.UserName` |
-| `Name` | `ClaimTypes.GivenName` | `ICurrentUser.Name` |
-| `SurName` | `ClaimTypes.Surname` | `ICurrentUser.SurName` |
-| `Role` | `ClaimTypes.Role` | `ICurrentUser.Roles` |
-| `Email` | `ClaimTypes.Email` | `ICurrentUser.Email` |
+| `UserId` | `"sub"` | `ICurrentUser.Id` |
+| `UserName` | `"username"` | `ICurrentUser.UserName` |
+| `Name` | `"name"` | `ICurrentUser.Name` |
+| `NickName` | `"nickname"` | `ICurrentUser.NickName` |
+| `Role` | `"role"` | `ICurrentUser.Roles` |
+| `Email` | `"email"` | `ICurrentUser.Email` |
 | `PhoneNumber` | `"phone_number"` | `ICurrentUser.PhoneNumber` |
-| `TenantId` | `"tenantid"`（小写、无分隔符） | `ICurrentUser.TenantId` 的 claim 键，**同时**是 `TenantMiddleware` 的 Header/Cookie/Query 键 |
+| `TenantId` | `"tenant_id"` | **只**被 `ICurrentUser.TenantId` 使用；`TenantMiddleware` 不读它（见 Cike.MultiTenancy） |
+
+> 源码中 `TenantId` 的 XML 注释还写着 `Default: "tenantid"`，那是历史残留，实际值是 `"tenant_id"`，以代码为准。
+
+**`CikeSecurityModule`**：`CikeModule` 子类，没有 `[DependsOn]`，两个生命周期方法都没有逻辑。它存在的意义是让 `Cike.Security` 程序集进入模块图，从而触发约定式 DI 扫描。
+
+### 隐式行为
+
+1. **DI 注册**：`CurrentUserContext`（注册为 `ICurrentUser`，singleton）走标记接口约定自动注册。前提是 `CikeSecurityModule` 在依赖图中。**`CikeAspNetCoreMinimalApiModule` 不带入它**，通常经 `CikeDataEFCoreModule` 带入。只用 MinimalAPIs、不用 EF Core 的宿主，如果要注入 `ICurrentUser`，必须自己 `[DependsOn(typeof(CikeSecurityModule))]`，否则解析失败。模块系统见 [框架内核](./framework-core.md)。
+2. **`IHttpContextAccessor` 不由本包注册**：注册点在 `CikeAspNetCoreMinimalApiModule.ConfigureServicesAsync`（`AddHttpContextAccessor()`）。非 Web 宿主（没有 MinimalAPIs 模块）必须自己 `services.AddHttpContextAccessor()`，否则 `ICurrentUser` 解析失败，因为 `CurrentUserContext` 的构造器依赖它。
+3. **后台线程或非 HTTP 上下文**：`IHttpContextAccessor.HttpContext` 为 null 时，`ICurrentUser` 的各 string 属性返回 null、`TenantId` 返回 null、`Roles` 返回空数组。`IsAuthorization` 例外，会抛 `NullReferenceException`。
+4. **`CikeClaimTypes` 是可变静态属性**：启动早期改键名，对全进程所有 `ICurrentUser` 读取点立即生效。运行期修改不是线程安全的，禁止这样做。
+5. **键名必须和 token 实际 claim 类型一致**：`ICurrentUser` 按 `CikeClaimTypes` 原样匹配 `Claim.Type`，没有别名或映射层。JwtBearer 的 `MapInboundClaims` 默认为 `true`，会把 token 里的部分短键改写成 `ClaimTypes.*` 长 URI（例如 `sub` → `ClaimTypes.NameIdentifier`、`role` → `ClaimTypes.Role`），导致 `ICurrentUser.Id`/`Roles` 恒为空。使用 JwtBearer 时必须设 `options.MapInboundClaims = false`（写法见 Cike.MultiTenancy 章的宿主模块示例）；或者反过来，把 `CikeClaimTypes` 改成映射后的长 URI。
+
+### 示例
+
+读当前用户（应用层 Handler 或任意服务，构造器注入）：
+
+```csharp
+using Cike.Security;
+using Cike.Security.Extensions;
+
+public class OrderCommandHandler(ICurrentUser currentUser)
+{
+    public Task HandleAsync(CreateOrderCommand command)
+    {
+        // Id 是 string?（默认读 "sub" claim）；确信在认证端点内才用强转扩展
+        long userId = currentUser.GetLongId();          // Id 为 null 或非数字会抛异常
+
+        string? userName = currentUser.UserName;        // 无对应 claim → null
+        string? nickName = currentUser.NickName;
+        string[] roles = currentUser.Roles;             // ["admin", ...]，Distinct，无 → 空数组
+
+        // 只反映 JWT 的 "tenant_id" claim；框架的数据层不按它过滤（数据层读 ICurrentTenant.Id）
+        long? tenantFromClaims = currentUser.TenantId;
+
+        return Task.CompletedTask;
+    }
+}
+```
+
+启动早期改写键名，对齐既有 token：
+
+```csharp
+CikeClaimTypes.UserId = "uid";
+CikeClaimTypes.Role = "roles";
+```
+
+### 配置
+
+| 项 | 说明 |
+|---|---|
+| 框架 options / appsettings 绑定 | 无。本包不定义任何 options 类，也不读任何配置节 |
+| `CikeClaimTypes`（静态可写属性） | 唯一的配置点：启动早期改写 claim 键名。运行期禁改（见隐式行为 4） |
+| JWT 认证配置 | 宿主自己写：`AddAuthentication().AddJwtBearer(...)` + `TokenValidationParameters`。token 的 claim 键名要和 `CikeClaimTypes` 默认值对齐（`sub`、`role`、`tenant_id`……），或者反过来改 `CikeClaimTypes` 去适配既有 token。使用 JwtBearer 时必须设 `MapInboundClaims = false`（见隐式行为 5） |
+
+### 边界与反模式
+
+- **`IsAuthorization` 的坑**：`HttpContext` 为 null（后台线程）时会抛 `NullReferenceException`。在 HTTP 请求内它按 `Identity?.IsAuthenticated ?? false` 判定。后台代码不要调用它；判定"已认证"时，优先依赖端点鉴权或 `ICurrentUser.Id != null`。
+- **`GetLongId()`/`GetGuidId()` 在未认证时抛异常**（因为 `Id` 为 null）：先判空，或者确保只在认证端点内调用。
+- **非 Web 宿主**必须自己 `services.AddHttpContextAccessor()`。**只依赖 MinimalAPIs 的宿主**必须自己 DependsOn `CikeSecurityModule`（见隐式行为 1）。
+- **不要在运行期改 `CikeClaimTypes`**：改动全进程立即生效，而且不是线程安全的。
+- 单例端点类可以安全地构造器注入 `ICurrentUser`，因为它本身就是 singleton。
+
+## Cike.MultiTenancy
+
+### 定位
+
+- `ICurrentTenant` 是 `AsyncLocal<long>` 里的环境租户值，由 `TenantMiddleware`（请求级）或 `Change()`（代码级）设置。数据访问层的租户过滤和插入自动填值读的是**它**，不是 `ICurrentUser.TenantId`。
+- `TenantMiddleware` 把请求中的租户 Id 写入 `ICurrentTenant`，作用于整个后续管线。解析顺序是 Claims → Header → Cookie → Query。
+- 边界：本包不依赖 `Cike.Security`，租户解析不经过 `ICurrentUser`/`CikeClaimTypes`，直接读 `HttpContext.User`。
+
+### 能力清单
+
+命名空间：
+
+- `Cike.MultiTenancy`：`ICurrentTenant`、`ICurrentTenantAccessor`、`CikeTenantConsts`、`CikeMultiTenancyModule`
+- `Cike.MultiTenancy.Internals`：`CurrentTenant`（**internal**）、`CurrentTenantAccessor`（public）
+- `Cike.MultiTenancy.Middlewares`：`TenantMiddleware`
 
 **`ICurrentTenant` / `ICurrentTenantAccessor`（当前租户）**
 
@@ -95,8 +193,20 @@ public interface ICurrentTenantAccessor
 }
 ```
 
-- `CurrentTenant : ICurrentTenant, ITransientDependency`：薄委托，状态全在 accessor。
-- `CurrentTenantAccessor`：内部 `AsyncLocal<long>`（默认 0）；**不实现标记接口**，由 `CikeAuthModule` 手动 `AddSingleton` 注册——进程内唯一的 AsyncLocal 存储点。
+- `CurrentTenant : ICurrentTenant, ITransientDependency`：internal 薄委托，状态全在 accessor 里。业务只依赖接口。
+- `CurrentTenantAccessor`：内部是 `AsyncLocal<long>`（默认 0）。它**不实现标记接口**，由 `CikeMultiTenancyModule` 手动 `AddSingleton` 注册，是进程内唯一的 AsyncLocal 存储点。
+
+**`CikeTenantConsts`（静态类）**
+
+```csharp
+public static class CikeTenantConsts
+{
+    public const string TenantIdKey = "tenant_id";   // TenantMiddleware 的 claim / Header / Cookie / Query 键
+
+    // ClaimsPrincipal 扩展：取首个匹配 claim 并 long.TryParse，失败/缺失 → 0
+    public static long GetLongValue(this ClaimsPrincipal claimsPrincipal, string key);
+}
+```
 
 **`TenantMiddleware`（租户解析中间件）**
 
@@ -107,16 +217,16 @@ public class TenantMiddleware(ICurrentTenant _currentTenant) : IMiddleware, ITra
 }
 ```
 
-`GetTenantId(HttpContext)` 解析顺序（全部失败返回 0）：
+`GetTenantId(HttpContext)` 的解析顺序如下，全部失败时返回 0：
 
 | 顺序 | 来源 | 键 | 采纳条件 |
 |---|---|---|---|
-| 1 | `context.User`（JWT Claims） | `CikeClaimTypes.TenantId` = `"tenantid"` | 解析出的 long 必须 **> 0**（≤0/缺失落到下一来源） |
-| 2 | `Request.Headers` | `"tenantid"` | `long.TryParse` 成功即可（无 >0 校验，0/负数也采纳） |
-| 3 | `Request.Cookies` | `"tenantid"` | 同上 |
-| 4 | `Request.Query` | `"tenantid"` | 同上 |
+| 1 | `context.User`（JWT Claims） | `CikeTenantConsts.TenantIdKey` = `"tenant_id"` | 解析出的 long 必须 **> 0**，≤0 或缺失就落到下一来源 |
+| 2 | `Request.Headers` | `"tenant_id"` | `long.TryParse` 成功即可（不校验 >0，0 和负数也采纳） |
+| 3 | `Request.Cookies` | `"tenant_id"` | 同上 |
+| 4 | `Request.Query` | `"tenant_id"` | 同上 |
 
-解析值 ≠ 当前 `ICurrentTenant.Id` 时以 `using (_currentTenant.Change(tenantId))` 包裹 `next(context)`；相等则直接放行。
+解析值与当前 `ICurrentTenant.Id` 不同时，用 `using (_currentTenant.Change(tenantId))` 包裹 `next(context)`；相同则直接放行。
 
 **`UseMultiTenant`（挂载扩展，定义在 `Cike.AspNetCore.MinimalAPIs` 包）**
 
@@ -125,58 +235,34 @@ public class TenantMiddleware(ICurrentTenant _currentTenant) : IMiddleware, ITra
 public static void UseMultiTenant(this IApplicationBuilder app);  // => app.UseMiddleware<TenantMiddleware>()
 ```
 
-**`CikeAuthModule`**：`CikeModule` 子类，无 `[DependsOn]`；`ConfigureServicesAsync` 唯一动作是 `context.Services.AddSingleton<ICurrentTenantAccessor>(new CurrentTenantAccessor())`；`InitializeAsync` 无逻辑——`TenantMiddleware` **不会**自动挂载。
+**`CikeMultiTenancyModule`**：`CikeModule` 子类，没有 `[DependsOn]`。`ConfigureServicesAsync` 只做一件事：`context.Services.AddSingleton<ICurrentTenantAccessor>(new CurrentTenantAccessor())`。它**不会**自动挂载 `TenantMiddleware`。
 
 ### 隐式行为
 
-1. **DI 注册方式**：`CurrentUserContext`（→ `ICurrentUser`，singleton）、`CurrentTenant`（→ `ICurrentTenant`，transient）、`TenantMiddleware`（自类型 transient，满足 `IMiddleware` 模式的 `UseMiddleware<TenantMiddleware>()` 解析）走标记接口约定自动注册；`ICurrentTenantAccessor` 由模块手动注册 singleton（共享同一 `AsyncLocal`）。前提是 `CikeAuthModule` 在依赖图中（通常经 `CikeAspNetCoreMinimalApiModule`）——不在图中则本包**无任何**自动注册发生（模块系统见 [框架内核](./framework-core.md)）。
-2. **`IHttpContextAccessor` 不由本包注册**：注册点在 `CikeAspNetCoreMinimalApiModule.ConfigureServicesAsync`（`AddHttpContextAccessor()`）。宿主只引 `Cike.Auth`（非 Web 宿主）时必须自行 `services.AddHttpContextAccessor()`，否则解析 `ICurrentUser` 失败（`CurrentUserContext` 构造依赖它）。
-3. **`TenantMiddleware` 不自动挂载**：不调用 `app.UseMultiTenant()` 时 `ICurrentTenant.Id` 恒为 0。后果落在数据层（见 [数据访问](./data-access.md)）：`IMultiTenant` 实体的全局查询过滤（默认启用）按 `EF.Property<long>(e, "TenantId") == CurrentTenant.Id` 匹配——只会查到 `TenantId == 0` 的行；插入自动填 `TenantId = 0`。
-4. **中间件顺序由模块初始化顺序保证**：模块按依赖排序初始化（被依赖在前，宿主启动模块最后）。`CikeAspNetCoreMinimalApiModule.InitializeAsync` 在 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 true）时已挂 `UseAuthentication`/`UseAuthorization`，因此宿主模块 `InitializeAsync` 里调 `UseMultiTenant()` 自然位于认证之后，Claims 分支能读到 JWT。`EnabledAuthorization = false` 时不挂认证中间件（总开关，端点也不再带认证要求）——Claims 分支永远取不到值，租户只能靠 Header/Cookie/Query。
-5. **两个租户来源互不影响**：`TenantMiddleware` 与 `Change()` 只写 `ICurrentTenant`（AsyncLocal），从不写 Claims；`ICurrentUser.TenantId` 始终只反映 JWT 的 `"tenantid"` claim（无 claim 即 null）。同一请求内两者可以合法地不同：无 JWT 但 Header 带 `tenantid=7` 时，`ICurrentTenant.Id == 7`、`ICurrentUser.TenantId == null`。
-6. **后台线程/非 HTTP 上下文**：`IHttpContextAccessor.HttpContext` 为 null 时 `ICurrentUser` 各 string 属性返回 null、`TenantId` null、`Roles` 空数组（`IsAuthorization` 例外，抛 `NullReferenceException`）。`ICurrentTenant` 的 AsyncLocal 值随异步调用链流动，但**不要假设**后台任务（Channel 后台消费、独立线程）继承发布时的租户——需要租户语义时把 `tenantId` 作为显式参数/事件字段传递，或用 `Change` 重新建立。
-7. **`CikeClaimTypes` 是可变静态属性**：启动早期改键名对全进程所有读取点即时生效（含 `TenantMiddleware` 的 Header/Cookie/Query 键）；运行期修改非线程安全，禁止。
+1. **DI 注册方式**：`CurrentTenant`（注册为 `ICurrentTenant`，transient；约定扫描用 `Assembly.GetTypes()`，internal 类同样会被注册）和 `TenantMiddleware`（注册自身类型，transient，供 `UseMiddleware<TenantMiddleware>()` 按 `IMiddleware` 模式解析）走标记接口约定自动注册。`ICurrentTenantAccessor` 由模块手动注册为 singleton，大家共享同一个 `AsyncLocal`。前提是 `CikeMultiTenancyModule` 在依赖图中，MinimalAPIs 模块和 EF Core 模块都会带入它。
+2. **`TenantMiddleware` 不自动挂载**：不调用 `app.UseMultiTenant()` 时，`ICurrentTenant.Id` 恒为 0。后果落在数据层（见 [数据访问](./data-access.md)）：`IMultiTenant` 实体的全局查询过滤（默认启用）按 `TenantId == CurrentTenant.Id` 匹配，只能查到 `TenantId == 0` 的行，插入时也自动填 `TenantId = 0`。
+3. **中间件顺序靠模块初始化顺序保证**：模块按依赖顺序初始化，被依赖的先初始化，宿主启动模块最后。`CikeAspNetCoreMinimalApiModule.InitializeAsync` 在 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 true）为 true 时已经挂了 `UseAuthentication`/`UseAuthorization`，所以宿主模块在 `InitializeAsync` 里调 `UseMultiTenant()`，它自然排在认证之后，Claims 分支能读到 JWT。另一种挂法是在 `app.InitializeApplicationAsync()` 之后调用，效果相同。`EnabledAuthorization = false` 时 MinimalAPIs 模块不挂认证中间件，Claims 分支取不到值，租户只能靠 Header/Cookie/Query。
+4. **租户键名固定，不跟随 `CikeClaimTypes`**：`TenantMiddleware` 用的是常量 `CikeTenantConsts.TenantIdKey = "tenant_id"`，不可配置。改了 `CikeClaimTypes.TenantId` 只影响 `ICurrentUser.TenantId`，中间件的 claim、Header、Cookie、Query 键都不变。
+5. **两个租户来源互不影响**：`TenantMiddleware` 和 `Change()` 只写 `ICurrentTenant`（AsyncLocal），从不写 Claims。`ICurrentUser.TenantId` 始终只反映 JWT 中键为 `CikeClaimTypes.TenantId` 的 claim，没有这个 claim 就是 null。所以同一请求内两者可以不同，而且是合法的：没有 JWT 但 Header 带了 `tenant_id=7` 时，`ICurrentTenant.Id == 7`，`ICurrentUser.TenantId == null`。
+6. **后台任务**：`ICurrentTenant` 的 AsyncLocal 值会随异步调用链流动，但**不要假设**后台任务（Channel 后台消费、独立线程）继承了发布时的租户。需要租户语义时，把 `tenantId` 作为显式参数或事件字段传递，或者用 `Change` 重新建立。
 
 ### 示例
 
-读当前用户（应用层 Handler / 任意服务，构造器注入）：
-
-```csharp
-using Cike.Auth;
-using Cike.Auth.Extensions;
-
-public class OrderCommandHandler(ICurrentUser currentUser)
-{
-    public Task HandleAsync(CreateOrderCommand command)
-    {
-        // Id 是 string?（默认读 ClaimTypes.NameIdentifier claim）；确信在认证端点内才用强转扩展
-        long userId = currentUser.GetLongId();          // Id 为 null/非数字会抛异常
-
-        string? userName = currentUser.UserName;        // 无对应 claim → null
-        string? email = currentUser.Email;
-        string[] roles = currentUser.Roles;             // ["admin", ...]，Distinct，无 → 空数组
-
-        // 只反映 JWT 的 "tenantid" claim；框架的数据层不过滤它（数据层读 ICurrentTenant.Id）
-        long? tenantFromClaims = currentUser.TenantId;
-
-        return Task.CompletedTask;
-    }
-}
-```
-
-启用租户中间件（宿主模块；JWT 注册配置由宿主自写）：
+启用租户中间件（宿主模块；JWT 注册配置由宿主自己写）：
 
 ```csharp
 using Cike.AspNetCore.MinimalAPIs;             // CikeAspNetCoreMinimalApiModule
 using Cike.AspNetCore.MinimalAPIs.Extensions;  // UseMultiTenant()
 using Cike.Core.Modularity;                    // CikeModule / GetApplicationBuilder()
+using Cike.Security;                           // CikeSecurityModule
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 
-[DependsOn(typeof(CikeAspNetCoreMinimalApiModule))]  // 该模块 [DependsOn] CikeAuthModule，自动带入本包
+// MinimalAPIs 模块已带入 CikeMultiTenancyModule；要注入 ICurrentUser 且未依赖 EF Core 模块时显式加 CikeSecurityModule
+[DependsOn(typeof(CikeAspNetCoreMinimalApiModule), typeof(CikeSecurityModule))]
 public class HostServiceModule : CikeModule
 {
-    // 认证（JWT）注册配置完全由宿主自己写——Cike.Auth 不做认证
+    // 认证（JWT）注册配置完全由宿主自己写，框架不做认证
     public override Task ConfigureServicesAsync(ServiceConfigurationContext context)
     {
         context.Services
@@ -184,7 +270,12 @@ public class HostServiceModule : CikeModule
             .AddJwtBearer(options =>
             {
                 // 按项目实际填写 options.TokenValidationParameters（Issuer/SigningKey/Lifetime...）
-                // token 内 claim 键名需与 CikeClaimTypes 默认值对齐，或改 CikeClaimTypes 对齐既有 token
+
+                // 必须关闭入站 claim 映射：默认 true 会把 sub/role 改写成 ClaimTypes.* 长 URI，ICurrentUser 将读不到
+                options.MapInboundClaims = false;
+                // 让 Identity.Name / [Authorize(Roles = ...)] 也按短键工作
+                options.TokenValidationParameters.NameClaimType = CikeClaimTypes.UserName;
+                options.TokenValidationParameters.RoleClaimType = CikeClaimTypes.Role;
             });
         return base.ConfigureServicesAsync(context);
     }
@@ -200,10 +291,10 @@ public class HostServiceModule : CikeModule
 }
 ```
 
-`ICurrentTenant.Change` 包裹用法（以指定租户身份执行一段逻辑）：
+用 `ICurrentTenant.Change` 包裹，以指定租户身份执行一段逻辑：
 
 ```csharp
-using Cike.Auth.MultiTenant;
+using Cike.MultiTenancy;
 using Cike.Domain.Repositories;   // IRepository 命名空间以项目 _Imports.cs 为准
 
 public class OrderMaintenanceService(IRepository<Order, long> orderRepository, ICurrentTenant currentTenant)
@@ -215,7 +306,7 @@ public class OrderMaintenanceService(IRepository<Order, long> orderRepository, I
             // IMultiTenant 实体的全局查询过滤、插入自动填 TenantId 读的都是这个值
             var orders = await orderRepository.GetListAsync();
         }
-        // Dispose 恢复"进入前"的值——嵌套 Change 时是外层值，不是恢复为 0
+        // Dispose 恢复"进入前"的值：嵌套 Change 时恢复成外层值，不是 0
     }
 }
 ```
@@ -224,40 +315,26 @@ public class OrderMaintenanceService(IRepository<Order, long> orderRepository, I
 
 | 项 | 说明 |
 |---|---|
-| 框架 options / appsettings 绑定 | 无——本包不定义任何 options 类，不读任何配置节 |
-| `CikeClaimTypes`（静态可写属性） | 唯一配置点：启动早期改写 claim/请求键名（如 `CikeClaimTypes.UserId = "uid";`）。运行期禁改（见隐式行为 7） |
-| JWT 认证配置 | 宿主自写：`AddAuthentication().AddJwtBearer(...)` + `TokenValidationParameters`；token 的 claim 键名需与 `CikeClaimTypes` 默认值对齐（`UserId` → `ClaimTypes.NameIdentifier`、`TenantId` → `"tenantid"`、`Role` → `ClaimTypes.Role`），或反向改 `CikeClaimTypes` 适配既有 token |
-| `GlobalMinimalApiRouteOptions.EnabledAuthorization` | HTTP 域选项（默认 true）**总开关**：控制 MinimalAPIs 模块是否自动挂 `UseAuthentication`/`UseAuthorization` 并给端点加 `RequireAuthorization`，间接决定 `TenantMiddleware` 的 Claims 分支是否可用，见 [HTTP 接口层](./http-api.md) |
+| 框架 options / appsettings 绑定 | 无。本包不定义 options 类，也不读配置节 |
+| 租户键名 | 常量 `CikeTenantConsts.TenantIdKey = "tenant_id"`，**不可配置** |
+| `GlobalMinimalApiRouteOptions.EnabledAuthorization` | HTTP 域选项（默认 true），是**总开关**：控制 MinimalAPIs 模块是否自动挂 `UseAuthentication`/`UseAuthorization`，从而间接决定 `TenantMiddleware` 的 Claims 分支能不能用，见 [HTTP 接口层](./http-api.md) |
 
 ### 边界与反模式
 
-- **核心陷阱：`ICurrentUser.TenantId` 与 `ICurrentTenant.Id` 是两个不同来源**，不要混用：
+- **核心陷阱：`ICurrentUser.TenantId` 和 `ICurrentTenant.Id` 是两个不同的来源**，不要混用：
 
   | | `ICurrentUser.TenantId` | `ICurrentTenant.Id` |
   |---|---|---|
+  | 所在包 | `Cike.Security` | `Cike.MultiTenancy` |
   | 类型 | `long?` | `long` |
-  | 来源 | JWT `"tenantid"` claim（`ClaimsPrincipal`） | `AsyncLocal<long>`（`TenantMiddleware` 写入 / `Change()` 手动设置） |
+  | 来源 | JWT 中 `CikeClaimTypes.TenantId`（默认 `"tenant_id"`）claim | `AsyncLocal<long>`（`TenantMiddleware` 写入，或 `Change()` 手动设置） |
   | `Change()` 是否影响 | 否 | 是 |
   | 框架内消费方 | **无**（纯业务只读） | `CikeDbContext` 多租户查询过滤、`EntityHelper` 插入自动填 `TenantId` |
-  | 未认证/未挂中间件时 | null | 恒 0（过滤匹配 `TenantId == 0`，插入填 0） |
+  | 未认证或未挂中间件时 | null | 恒为 0（过滤匹配 `TenantId == 0`，插入填 0） |
 
-  想通过切换租户影响数据过滤，必须走 `ICurrentTenant`；改 token/Claims 才会影响 `ICurrentUser`。注意：`src/Cike.Auth/README.md` 与 `docs/ai/README.md` 第 4 节第 7 条仍写"查询按 `ICurrentUser.TenantId` 过滤"——那是历史行为，当前源码（`CikeDbContext.CreateFilterExpression`）为 `CurrentTenant.Id`，以源码为准。
-- **上下文不是认证**：本包不产生 401/403。端点鉴权用 MinimalAPI 的 `RequireAuthorization`（默认全局开启，见 [HTTP 接口层](./http-api.md)）。
-- **`IsAuthorization` 两条坑**：`HttpContext` 为 null（后台线程）时抛 `NullReferenceException`；`Identity` 为 null 时返回 true（fail-open）。不要用它做安全决策，判定已认证请依赖端点鉴权或 `ICurrentUser.Id != null`。
-- **`GetLongId()`/`GetGuidId()` 在未认证时抛异常**（`Id` 为 null）：先判空，或确保只在认证端点内调用。
-- **不要重复注册 `ICurrentTenantAccessor`**：模块已注册 singleton；业务再 `AddSingleton` 一个实例（或 new `CurrentTenantAccessor()`）会产生第二个 `AsyncLocal` 存储，`Change` 互相不可见、租户静默丢失。
-- **非 Web 宿主只引本包时**必须自行 `services.AddHttpContextAccessor()`，否则 `ICurrentUser` 解析失败。
-- **租户解析的 >0 门槛只对 Claims 来源生效**：Header/Cookie/Query 可把 0/负数写入 `ICurrentTenant.Id`（`long.TryParse` 成功即采纳）——租户 Id 约定应为正数，依赖此行为做防御不可靠。键名固定为小写 `"tenantid"`。
-- **不要在运行期改 `CikeClaimTypes`**：全进程即时生效且非线程安全。
-- **后台任务不要假设继承请求租户**：把 `tenantId` 显式传递或用 `Change` 重建（见隐式行为 6）。
-- 单例端点类可安全构造器注入 `ICurrentUser`/`ICurrentTenant`：前者本身 singleton，后者是无状态 transient（状态在全局 accessor 的 AsyncLocal）。
-
-## 废弃的 Cike.MultiTenant
-
-`src/Cike.MultiTenant` 是历史遗留目录，不在解决方案中、不参与编译，**勿用**。原因：
-
-1. `CikeMultiTenantModule` 是普通空类，未继承 `CikeModule`——不是合法模块，模块系统不会加载；
-2. 其 `ICurrentTenant` 用 **`Guid?`** 租户 Id，与框架现行 `long` 全面冲突（`IMultiTenant.TenantId`、`CikeClaimTypes.TenantId`、`TenantMiddleware` 均为 long）；
-3. 其类型的命名空间写的也是 `Cike.Auth.MultiTenant`，与 `Cike.Auth` 包现行同名类型直接冲突——同时引用两个包会编译冲突。
-
-替代：现行全部多租户能力在 `Cike.Auth`（本域文档）——`ICurrentTenant`（long）、`ICurrentTenantAccessor`、`TenantMiddleware`、`CikeClaimTypes`。
+  想通过切换租户影响数据过滤，必须走 `ICurrentTenant`。改 token/Claims 只会影响 `ICurrentUser`。
+- **不要重复注册 `ICurrentTenantAccessor`**：模块已经注册了 singleton。业务再 `AddSingleton` 一个实例（或者自己 new `CurrentTenantAccessor()`），会产生第二个 `AsyncLocal` 存储，`Change` 互相看不见，租户会静默丢失。
+- **租户解析的 >0 门槛只对 Claims 来源生效**：Header/Cookie/Query 只要 `long.TryParse` 成功就采纳，可以把 0 或负数写进 `ICurrentTenant.Id`。租户 Id 约定应为正数，不要依赖这个行为做防御。键名固定为 `"tenant_id"`，旧客户端如果还在用 `tenantid`，必须迁移。
+- **扩展方法同名冲突**：`Cike.MultiTenancy.CikeTenantConsts.GetLongValue` 和 `Cike.Security.Extensions.ClaimsPrincipalExtensions.GetLongValue` 签名完全相同。同一文件同时 `using` 这两个命名空间并调用 `principal.GetLongValue(...)` 时会报二义性编译错误，这时改用静态调用形式，或者只 `using` 其中一个。
+- **后台任务不要假设继承了请求租户**：把 `tenantId` 显式传递，或者用 `Change` 重建（见隐式行为 6）。
+- 单例端点类可以安全地构造器注入 `ICurrentTenant`：它是无状态的 transient，状态在全局 accessor 的 AsyncLocal 里。

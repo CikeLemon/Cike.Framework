@@ -1,3 +1,4 @@
+using Cike.Data.Domain.Repositories;
 using CQRS.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

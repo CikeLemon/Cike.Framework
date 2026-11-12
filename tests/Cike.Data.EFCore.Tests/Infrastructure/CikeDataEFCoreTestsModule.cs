@@ -1,3 +1,5 @@
+using Cike.Security;
+
 namespace Cike.Data.EFCore.Tests.Infrastructure;
 
 /// <summary>
