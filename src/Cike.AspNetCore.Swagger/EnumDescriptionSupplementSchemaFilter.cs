@@ -1,4 +1,4 @@
-﻿using Microsoft.OpenApi.Models;
+﻿using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text;
 
@@ -6,35 +6,25 @@ namespace Cike.AspNetCore.Swagger;
 
 public class EnumDescriptionSupplementSchemaFilter : ISchemaFilter
 {
-    public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
-        if (!context.Type.IsEnum)
+        if (!context.Type.IsEnum || schema is not OpenApiSchema openApiSchema)
         {
             return;
         }
-        var enumValues = Enum.GetValues(context.Type);
-        StringBuilder stringBuilder = new StringBuilder(schema.Description);
-        stringBuilder.Append("{");
-        foreach (object value in enumValues)
+
+        // 数值映射只对数值枚举有意义；若该枚举挂了 JsonStringEnumConverter（schema 是 string），跳过
+        if (openApiSchema.Type != JsonSchemaType.Integer)
         {
-            StringBuilder stringBuilder2 = stringBuilder;
-            StringBuilder.AppendInterpolatedStringHandler handler = new StringBuilder.AppendInterpolatedStringHandler(15, 2, stringBuilder2);
-            handler.AppendFormatted<object>($"\"{value}\"");
-            handler.AppendLiteral(":");
-            if (enumValues.GetValue(enumValues.Length - 1)!.ToString() == value.ToString())
-            {
-                handler.AppendFormatted($"{(int)value}");
-            }
-            else
-            {
-                handler.AppendFormatted($"{(int)value},");
-            }
-            stringBuilder2.Append(ref handler);
+            return;
         }
-        stringBuilder.Append("}");
 
-        schema.Description = stringBuilder.ToString();
+        var underlyingType = Enum.GetUnderlyingType(context.Type);
+        var mapping = Enum.GetValues(context.Type).Cast<object>()
+            .Select(value => $"\"{value}\":{Convert.ChangeType(value, underlyingType)}");
 
-        stringBuilder.Clear();
+        openApiSchema.Description = string.IsNullOrWhiteSpace(openApiSchema.Description)
+            ? $"{{{string.Join(", ", mapping)}}}"
+            : $"{openApiSchema.Description}\n{{{string.Join(", ", mapping)}}}";
     }
 }

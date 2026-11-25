@@ -1,53 +1,40 @@
-﻿namespace Cike.AspNetCore.Swagger;
+﻿using Microsoft.OpenApi;
+using System.Reflection.Metadata;
+
+namespace Cike.AspNetCore.Swagger;
 
 public static class ServiceExtensions
 {
     public static IServiceCollection AddCikeSwagger(this IServiceCollection services, string projectName, Action<SwaggerGenOptions> configOptions = null)
     {
         return services.AddEndpointsApiExplorer()
-                .AddSwaggerGen(options =>
+            .AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new OpenApiInfo() { Title = projectName, Version = "v1" });
+
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme()
                 {
-                    options.SwaggerDoc("v1", new OpenApiInfo()
-                    {
-                        Title = projectName,
-                        Version = "v1"
-                    });
-                    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme()
-                    {
-                        Name = "Authorization",
-                        BearerFormat = "JWT",
-                        Scheme = "Bearer",
-                        Description = "Specify the authorization token",
-                        In = ParameterLocation.Header,
-                        Type = SecuritySchemeType.Http,
-                    });
-                    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-                    {
-                        {
-                            new OpenApiSecurityScheme
-                            {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "Bearer"
-                                }
-                            },
-                            Array.Empty<string>()
-                        }
-                    });
-
-                    foreach (var item in Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.xml"))
-                    {
-                        options.IncludeXmlComments(item);
-                    }
-
-                    // 支持多态
-                    options.UseAllOfForInheritance();
-                    options.UseOneOfForPolymorphism();
-                    // 支持枚举
-                    options.SchemaFilter<EnumDescriptionSupplementSchemaFilter>();
-                    configOptions?.Invoke(options);
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    Description = "输入 JWT（Swagger UI 会自动加 Bearer 前缀）",
                 });
+                options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+                });
+
+                foreach (var item in Directory.GetFiles(AppContext.BaseDirectory, "*.xml")
+                             .Where(x => !Path.GetFileName(x).StartsWith("Microsoft.")))
+                {
+                    options.IncludeXmlComments(item);
+                }
+
+                options.UseAllOfForInheritance();
+                options.UseOneOfForPolymorphism();
+                options.SchemaFilter<EnumDescriptionSupplementSchemaFilter>();
+                configOptions?.Invoke(options);
+            });
     }
 
 }
