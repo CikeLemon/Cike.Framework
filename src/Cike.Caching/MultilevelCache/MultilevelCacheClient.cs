@@ -429,7 +429,7 @@ public class MultilevelCacheClient : MultilevelCacheClientBase, ISingletonDepend
 
         foreach (var item in data)
         {
-            CacheItemModel<T> cacheItemModel = !_memoryCache.TryGetValue(item.Key, out T? value) ?
+            CacheItemModel<T> cacheItemModel = !_memoryCache.TryGetValue(item.FormattedKey, out T? value) ?
                 new(item.Key, item.FormattedKey, false, default) :
                 new(item.Key, item.FormattedKey, true, value);
             list.Add(cacheItemModel);
