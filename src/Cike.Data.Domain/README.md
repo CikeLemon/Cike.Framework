@@ -52,7 +52,7 @@ IReadOnlyRepository<TEntity, TKey>    // 查询（方法面与 ABP 对齐，见�
 | `GetCountAsync()` / `GetCountAsync(predicate)` | 计数 |
 | `AnyAsync(predicate?)` | 存在性 |
 | `GetQueryable()` | IQueryable 出口（同步，软删/多租户过滤器生效） |
-| `WithDetailsAsync(propertyPaths…)` | 指定导航预加载的 IQueryable |
+| `WithDetails(propertyPaths…)` | 指定导航预加载（Include）的 IQueryable，同步方法；表达式只能表达**一级导航**，多级预加载走 EF 实现的 `GetQueryable()` + `ThenInclude` 或自定义仓储封装 |
 
 - **CQRS 查询侧**注入 `IReadOnlyRepository`——编译期即无写能力
 - **命令侧 / 常规业务**注入 `IRepository`

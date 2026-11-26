@@ -126,7 +126,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 - 实体创建统一走静态工厂 `Create(...)`（收原生类型/值对象，不把 Dto 传进领域层）；setter 封装与 Mapster 写侧映射看项目取舍，不强制完整 DDD（见 [数据访问](./data-access.md) 实体设计约定）
 - 校验三层硬性划分：请求级基础合法性（非空/范围/长度/格式）→ FluentValidation Validator；领域不变量（状态组合/业务规则）→ 实体工厂（不重复基础检查）；需要查库的跨聚合校验（唯一性/引用存在性）→ 命令 Handler 的**单个**私有 `ValidateAsync`（多字段合并一次查询，见 [事件与 CQRS](./events-cqrs.md)）
 - 输入卫生不散落在业务代码：body 字符串绑定层已自动 Trim，不要手写 `.Trim()`；查询串参数（如搜索关键词）永不 Trim——空格可能是搜索词的一部分
-- 查询只读场景用 `repository.BeginAsNoTracking()` 包裹，复杂查询走 `GetQueryable()` / `WithDetailsAsync()`
+- 查询只读场景用 `repository.BeginAsNoTracking()` 包裹，复杂查询走 `GetQueryable()` / `WithDetails()`（仅一级导航）；多级预加载（`Include(...).ThenInclude(...)`）走 `GetQueryable()` 或封装进自定义仓储语义方法
 - 读侧（实体→Dto）映射用 Mapster：`entity.Adapt<TDto>()`（基类继承的 Id/审计字段按名字自动带上）；非平凡映射在 Application 模块注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`，不要手写逐字段 `MapToDto`
 - 分页参数打包成一个 `PagedAndSortedResultRequest` 对象（端点 `[AsParameters]` 绑定），业务筛选参数平铺：`GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)`，Handler 直传 `GetPagedListAsync`/`ToPaginationAsync`——筛选字段多时才改用继承它的 Dto，不要在中间任何一层重新组装分页请求
 - 动态组合 `Expression<Func<T, bool>>` 查询条件用 `ExpressionExtensions.And/Or/Not`（`using Cike.Core.Extensions.Expressions;`，参数自动重绑定），不要手写 ExpressionVisitor

@@ -33,7 +33,9 @@ EF Core 集成核心：`CikeDbContext` 基类（一大堆自动化）、默认/�
 - **复杂查询出口**：仓储方法不够用时——
   ```csharp
   var queryable = repository.GetQueryable();                  // 任意 LINQ，软删/多租户过滤器依然生效
-  var detailed  = await repository.WithDetailsAsync(o => o.Lines);  // 指定导航预加载
+  var detailed  = repository.WithDetails(o => o.Lines);       // 指定导航预加载（仅一级，返回 IQueryable）
+  var deep      = repository.GetQueryable()                   // 多级预加载：WithDetails 表达不了 ThenInclude
+      .Include(o => o.Lines).ThenInclude(l => l.Product);     // 聚合固定对象图建议封装进自定义仓储（见下）
   using (repository.BeginAsNoTracking())                      // 查询侧关闭跟踪，Dispose 恢复
   {
       var dto = await repository.GetListAsync();
@@ -53,7 +55,7 @@ EF Core 集成核心：`CikeDbContext` 基类（一大堆自动化）、默认/�
       public Task<long> CountPendingAsync() => GetCountAsync(o => o.Status == OrderStatus.Pending);
   }
   ```
-  约定注册先于默认注册（TryAdd 语义），自定义仓储天然接管同实体的 `IRepository` 解析。多个 DbContext 含同一实体类型时先注册者保留，需要特定实现请写自定义仓储。
+  约定注册先于默认注册（TryAdd 语义），自定义仓储天然接管同实体的 `IRepository` 解析。多个 DbContext 含同一实体类型时先注册者保留，需要特定实现请写自定义仓储。另一典型场景：**多级导航预加载**——`WithDetails` 只能表达一级 Include，聚合有固定对象图时把 `Include(...).ThenInclude(...)` 封装成自定义仓储的语义方法（完整示例见 [docs/ai/data-access.md](../../docs/ai/data-access.md) Cike.Data.EFCore 章）。
 
 ### 注册与工厂
 - `services.AddCikeDbContext<T>()`：注册 `DbContextOptions` 工厂（内部走连接串解析）+ `IUnitOfWork → EFCoreUnitOfWork<T>` + 默认仓储；传 `addDefaultRepositories: false` 可关闭默认仓储

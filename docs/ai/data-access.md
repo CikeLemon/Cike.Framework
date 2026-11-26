@@ -220,7 +220,7 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 | `Task<long> GetCountAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)` | 条件计数 |
 | `Task<bool> AnyAsync(Expression<Func<TEntity, bool>>? predicate = null, CancellationToken ct = default)` | 存在性 |
 | `IQueryable<TEntity> GetQueryable()` | IQueryable 出口（同步方法；软删/多租户全局过滤器生效；默认跟踪） |
-| `IQueryable<TEntity> WithDetails(params Expression<Func<TEntity, object?>>[] propertyPaths)` | 指定导航预加载（Include）的 IQueryable——**同步方法，名为 WithDetails 而非 WithDetailsAsync** |
+| `IQueryable<TEntity> WithDetails(params Expression<Func<TEntity, object?>>[] propertyPaths)` | 指定导航预加载（Include）的 IQueryable——**同步方法，名为 WithDetails 而非 WithDetailsAsync**；表达式 Include 只能表达**一级导航**（`o => o.Lines`），多级预加载无法经此签名表达——走 `GetQueryable()` + `Include/ThenInclude`，或在自定义仓储封装成语义方法（见 EFCore 章示例与边界） |
 
 `IBasicRepository` 写方法（均带 `autoSave`，默认 `true`）：
 
@@ -478,9 +478,14 @@ public class OrderAppService(IRepository<Order, long> orders)
 // 任意 LINQ——软删/多租户过滤器依然生效
 var queryable = repository.GetQueryable().Where(o => o.TotalAmount > 100);
 
-// 指定导航预加载
+// 指定导航预加载（表达式 Include，仅一级导航）
 var withLines = repository.WithDetails(o => o.Lines);
 var order = await withLines.FirstOrDefaultAsync(o => o.Id == id);
+
+// 多级导航预加载：WithDetails 返回值上接不了 ThenInclude，直接走 GetQueryable
+var deep = await repository.GetQueryable()
+    .Include(o => o.Lines).ThenInclude(l => l.Product)
+    .FirstOrDefaultAsync(o => o.Id == id);
 
 // 查询侧关闭跟踪（Dispose 恢复）
 using (repository.BeginAsNoTracking())
@@ -496,6 +501,7 @@ using (repository.BeginAsNoTracking())
 public interface IOrderRepository : IRepository<Order, long>
 {
     Task<long> CountPendingAsync();
+    Task<Order?> FindFullAsync(long id, CancellationToken ct = default);
 }
 
 // 实现：继承 EfCoreRepository 获得全部默认能力；标注 IScopedDependency 走约定注册，
@@ -505,6 +511,12 @@ public class OrderRepository(CqrsDbContext dbContext)
     : EfCoreRepository<CqrsDbContext, Order, long>(dbContext), IOrderRepository, IScopedDependency
 {
     public Task<long> CountPendingAsync() => GetCountAsync(o => o.Status == OrderStatus.Pending);
+
+    // 聚合每次加载都需要同一张对象图时：多级 Include/ThenInclude 在这里写死一次，
+    // 调用点只调领域语义方法拿完整聚合（WithDetails 只能表达一级导航）
+    public Task<Order?> FindFullAsync(long id, CancellationToken ct = default) => GetQueryable()
+        .Include(o => o.Lines).ThenInclude(l => l.Product)
+        .FirstOrDefaultAsync(o => o.Id == id, ct);
 }
 ```
 
@@ -537,6 +549,7 @@ await unitOfWork.CommitAsync();   // 保存 + 发布领域事件 + 提交事务
 - 【已知技术债】`ToPaginationAsync`：`Page = 0` / 负数 → 偏移量未定义（`Skip((Page-1)*PageSize)` 可能为负，provider 报错）；`Sorting` 为空时无排序（分页内容不确定）；计数与 Skip/Take 路径丢弃 `CancellationToken`；`IQueryable.GetAsync` 扩展与仓储 `GetAsync` 双轨同形（优先用仓储方法）。
 - 【已知技术债】`DeleteAsync(TKey id)` 的"不存在静默返回"存在**并发窗口**：Find 与 Save 之间被并发删除会抛并发异常；框架尚无统一并发异常翻译层。另：被软删/租户过滤挡住的实体同样"静默返回"。
 - **IQueryable 生命周期**：查询挂在 Scoped DbContext 上，scope 释放后不可再物化；仓储是 Scoped 服务，不能构造注入进 Singleton（MinimalAPI 端点类是 Singleton——用 `[FromServices]` 方法参数注入，见 [HTTP 接口层](./http-api.md)）；取消令牌在物化处传入。
+- `WithDetails` 只能预加载**一级**导航：表达式 Include 无法表达多级路径（写 `o => o.Lines.Product` 会在运行时抛 EF 异常提示改用 ThenInclude），其返回值上也接不了 `ThenInclude`——多级预加载走 `GetQueryable().Include(...).ThenInclude(...)`；聚合有固定对象图时封装进自定义仓储语义方法（见示例），不要把多级 Include 散落在各调用点。
 - 同步 `SaveChanges` 不入队领域事件（只有 `SaveChangesAsync` 入队）；领域事件入队后即 `ClearDomainEvents`（防重复入队/死循环）。
 - `IMultiTenant.TenantId` 在跟踪时**无条件覆盖**为环境租户值——无法在 Add 前手工指定 TenantId；跨租户数据构造需先 `ICurrentTenant.Change(tenantId)` 再操作。
 - 审计时间戳用 `DateTime.Now`（服务器本地时间，非 UTC）；`ICurrentUser.Id` 非 long 可解析（如 GUID 字符串）时 `CreatedBy/UpdatedBy` 静默写 0。
