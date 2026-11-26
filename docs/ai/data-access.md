@@ -248,7 +248,7 @@ IRepository<TEntity, TKey>             合并标记接口（命令侧 / 常规�
 
 ### 实体设计约定
 
-基线约定：**创建走静态工厂 `Create(...)`**——收原生类型/值对象（Domain 不引用 Application.Contracts，不把 Dto 传进领域层），本地不变量（非空、取值范围、格式）在工厂内断言；跨聚合查重（如"编码唯一"）需要仓储查询，不在工厂里做——命令 Handler 先 `AnyAsync` 查重、再调工厂。
+基线约定：**创建走静态工厂 `Create(...)`**——收原生类型/值对象（Domain 不引用 Application.Contracts，不把 Dto 传进领域层）。**校验分层硬性边界**：请求级基础合法性（非空、取值范围、长度、格式）归 HTTP 层 FluentValidation Validator，**不得在工厂重复**；工厂只断言真正的**领域不变量**（状态组合合法性、业务规则）；需要仓储查询的跨聚合查重/引用存在性不在工厂里做——命令 Handler 合并为**一个** `ValidateAsync`（多个唯一性字段一次查询，见[事件与 CQRS](./events-cqrs.md)边界第 13 条），校验通过再调工厂。
 
 其余封装程度**看项目取舍，不强制完整 DDD**：
 

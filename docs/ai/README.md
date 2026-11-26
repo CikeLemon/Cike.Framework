@@ -115,6 +115,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 | 16 | 缓存 key 格式化 | 默认 `TypeName` 模式：实际 key = `{类型简单名}.{key}`（如 `User.42`，不含命名空间）；L2 Redis 端为 GZip 压缩的 Hash，redis-cli 不可直读 | 缓存 |
 | 17 | 端点默认要求认证 | 全局 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 true）是**总开关**：关 → 不挂认证中间件且所有端点不加 `RequireAuthorization`；开 → 端点级 `RouteOptions.EnabledAuthorization`（默认 true）逐服务决定是否加；未注册认证方案时是 500 而非 401 | HTTP 接口层 |
 | 18 | 表单端点 antiforgery 豁免 | .NET 8 起带表单参数（`IFormFile`、`[FromForm]`）的端点被平台自动要求 antiforgery 中间件，框架管道不挂 `UseAntiforgery()` → 此类端点请求时必 500；标 `[DisableAntiforgery]`（方法级/类级）后框架映射时对该端点调用 `.DisableAntiforgery()` 豁免；MVC 的 `[IgnoreAntiforgeryToken]` 对 Minimal API 无效 | HTTP 接口层 |
+| 19 | JSON body 字符串自动 Trim | 请求 body 反序列化时全部 `string` 属性去首尾空白（null 保持、纯空白收敛为空串；写出侧原样，查询串不受影响）——业务代码不要手写 `.Trim()`，查询参数永不 Trim | HTTP 接口层 |
 
 ## 5. 跨模块最佳实践与反模式
 
@@ -122,7 +123,9 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 
 - 服务注册一律走标记接口 / `[Dependency]`，让框架机制发现你的类
 - 命令侧 Handler 注入 `IRepository`，查询侧注入 `IReadOnlyRepository`（编译期隔离读写）
-- 实体创建统一走静态工厂 `Create(...)`（收原生类型/值对象，本地不变量在工厂内断言，跨聚合查重在 Handler 先查再调工厂）；setter 封装与 Mapster 写侧映射看项目取舍，不强制完整 DDD（见 [数据访问](./data-access.md) 实体设计约定）
+- 实体创建统一走静态工厂 `Create(...)`（收原生类型/值对象，不把 Dto 传进领域层）；setter 封装与 Mapster 写侧映射看项目取舍，不强制完整 DDD（见 [数据访问](./data-access.md) 实体设计约定）
+- 校验三层硬性划分：请求级基础合法性（非空/范围/长度/格式）→ FluentValidation Validator；领域不变量（状态组合/业务规则）→ 实体工厂（不重复基础检查）；需要查库的跨聚合校验（唯一性/引用存在性）→ 命令 Handler 的**单个**私有 `ValidateAsync`（多字段合并一次查询，见 [事件与 CQRS](./events-cqrs.md)）
+- 输入卫生不散落在业务代码：body 字符串绑定层已自动 Trim，不要手写 `.Trim()`；查询串参数（如搜索关键词）永不 Trim——空格可能是搜索词的一部分
 - 查询只读场景用 `repository.BeginAsNoTracking()` 包裹，复杂查询走 `GetQueryable()` / `WithDetailsAsync()`
 - 读侧（实体→Dto）映射用 Mapster：`entity.Adapt<TDto>()`（基类继承的 Id/审计字段按名字自动带上）；非平凡映射在 Application 模块注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`，不要手写逐字段 `MapToDto`
 - 分页参数打包成一个 `PagedAndSortedResultRequest` 对象（端点 `[AsParameters]` 绑定），业务筛选参数平铺：`GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)`，Handler 直传 `GetPagedListAsync`/`ToPaginationAsync`——筛选字段多时才改用继承它的 Dto，不要在中间任何一层重新组装分页请求

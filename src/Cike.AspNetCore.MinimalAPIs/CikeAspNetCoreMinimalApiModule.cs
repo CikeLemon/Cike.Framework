@@ -37,6 +37,7 @@ public class CikeAspNetCoreMinimalApiModule : CikeModule
         {
             options.SerializerOptions.Converters.Add(new LongToStringConverter());
             options.SerializerOptions.Converters.Add(new NullableLongToStringConverter());
+            options.SerializerOptions.Converters.Add(new TrimStringJsonConverter());
         });
     }
 

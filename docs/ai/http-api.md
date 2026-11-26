@@ -142,7 +142,7 @@ public class GlobalMinimalApiRouteOptions : MinimalApiRouteOptions
 
 **模块与全局行为**（模块类 `CikeAspNetCoreMinimalApiModule`，`[DependsOn(CikeMultiTenancyModule)]`）：
 
-- `ConfigureServicesAsync`：`AddHttpContextAccessor`；`TryAddSingleton<AutoValidationEndpointFilterProvider>()`；`Configure<GlobalMinimalApiRouteOptions>`（Prefix=api, Version=v1）；`AddObjectAccessor<IApplicationBuilder/IEndpointRouteBuilder>()`；注册 CORS 策略（名 `CikeAspNetCoreMinimalApiModule`）；`ConfigureHttpJsonOptions` 注册 `LongToStringConverter` + `NullableLongToStringConverter`。
+- `ConfigureServicesAsync`：`AddHttpContextAccessor`；`TryAddSingleton<AutoValidationEndpointFilterProvider>()`；`Configure<GlobalMinimalApiRouteOptions>`（Prefix=api, Version=v1）；`AddObjectAccessor<IApplicationBuilder/IEndpointRouteBuilder>()`；注册 CORS 策略（名 `CikeAspNetCoreMinimalApiModule`）；`ConfigureHttpJsonOptions` 注册 `LongToStringConverter` + `NullableLongToStringConverter` + `TrimStringJsonConverter`（body 字符串读取侧自动 Trim）。
 - `InitializeAsync` 按序装配中间件：`UseMiddleware<BusinessExceptionMiddleware>()` → `UseCors(...)` → 若 `GlobalMinimalApiRouteOptions.EnabledAuthorization` 则 `UseAuthentication()` + `UseAuthorization()` → 扫描映射全部端点（总开关同时门控端点级 `RequireAuthorization`，见隐式行为）。
 - 端点扫描范围：`CikeModuleContainer.CikeModules` 全部模块的程序集中所有非抽象、继承 `MinimalApiServiceBase` 的类。
 
@@ -185,6 +185,7 @@ app.Run();
 - **认证双层开关，默认全开**：全局 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 `true`）是**总开关**——开时挂 `UseAuthentication/UseAuthorization` 中间件；关时不挂中间件**且**不给任何端点加认证元数据。总开关为开时再看端点级 `RouteOptions.EnabledAuthorization`（默认 `true`）→ 该服务全部端点调用 `RouteHandlerBuilder`（默认 `RequireAuthorization()`）；端点级置 `false` 可让单个服务免认证。
 - **业务异常转 400**：`BusinessExceptionMiddleware` 捕获 `BusinessException`（含子类 `UserFriendlyException`，异常体系见[框架内核](./framework-core.md)），按 `ex.LogLevel` 记日志后返回 `Results.BadRequest(ex.Message)`——**400 + 纯文本消息**（`text/plain`），非 ProblemDetails。其他异常不处理（走默认 500）。
 - **JSON long 序列化**（仅 HTTP 请求/响应的 `JsonOptions`，不影响其他序列化器）：响应中 `long` 与 `long?` 一律输出字符串（防前端精度丢失）；请求中 `long`/`long?` 接受字符串或数字字面量。**陷阱**：`long?` 为 null 时输出 `"0"` 而非 `null`（`NullableLongToStringConverter` 的 `value?.ToString() ?? "0"`）。
+- **JSON body 字符串自动 Trim**（同上 `JsonOptions` 作用域，`TrimStringJsonConverter`）：请求 body 的全部 `string` 属性反序列化时去除首尾空白（null 保持 null，纯空白串收敛为空串）——**业务代码不要再对 body 字段手写 `.Trim()`**；序列化写出侧原样输出。查询串绑定不经过 JSON、不受影响，也不应受影响：搜索关键词等查询值合法包含空格，**Handler 里不要对查询参数手写 `.Trim()`**。个别需保留首尾空白的字段（如密码），在属性上标注自定义 `[JsonConverter]` 退出全局行为。
 - **CORS**：来源读配置节 `CorsDomains`（string 数组），缺省 `["localhost"]`；`AllowAnyHeader` + `AllowAnyMethod` + `AllowCredentials` + `SetPreflightMaxAge(2520 秒)`。
 - **方法名大小写不对称**：动词前缀匹配忽略大小写，但方法段剥离用 Ordinal——非 PascalCase 命名（如 `getOrderAsync`）会命中 GET 但路由段保留 `getOrder`。
 - **类级过滤器元数据**：类级 `EndpointFilterBaseAttribute`（未被方法级同类型覆盖时）同时写入端点 metadata（`WithMetadata`）。
@@ -326,6 +327,7 @@ public class HostModule : CikeModule { }
 - 【陷阱】**带表单参数的端点不豁免必 500**：.NET 8 起平台自动对 `IFormFile`/`[FromForm]` 端点要求 antiforgery 中间件，本框架不挂 `UseAntiforgery()`——此类端点必须标 `[DisableAntiforgery]`（方法级/类级）。MVC 的 `[IgnoreAntiforgeryToken]` 是过滤器特性，对 Minimal API 完全无效（进了端点元数据也不被检查），不要标了它期待报错消失。
 - 【陷阱】**Singleton 端点类不能构造注入 Scoped 服务**（仓储、DbContext、EventBus）：开发期（作用域校验）抛 `InvalidOperationException`，生产期形成 captive dependency。一律改为方法参数 `[FromServices]` 注入。
 - 【陷阱】**两种 400 响应形状并存**，前端分别处理：`[AutoValidation]` 校验失败 → `application/problem+json` ProblemDetails（`{"errors": {属性: [消息数组]}}`）；`UserFriendlyException`/`BusinessException` → `text/plain` 纯文本消息。详见 FluentValidation 章。
+- 【反模式】**手写 `.Trim()`**：body 字符串字段框架已在绑定时自动 Trim（`TrimStringJsonConverter`），端点/Handler 里再 Trim 是冗余代码；查询串参数（如 `var keyword = dto.Keyword.Trim()`）**永远不要** Trim——首尾空格可能就是搜索词的一部分。输入卫生归绑定层与前端，不散落在业务代码里。
 - 不要手写 `app.MapGet/MapPost`、`AddControllers`——继承 `MinimalApiServiceBase` 走命名约定。
 - 不要在非宿主项目（Domain/Application 等）引用 `Cike.AspNetCore.*`。
 - id 段规则细节：`long? id` 或 `long id = 0` 生成 `{id?}`（可选段），`long id` 生成 `{id}`；`[FromQuery] long id` 不会生成路由段（有绑定特性即不参与 id 推导）。
@@ -518,6 +520,7 @@ public class XxxApplicationModule : CikeModule { }
 - 【陷阱】依赖本模块后**不要手写 `AddValidatorsFromAssembly`**——框架已对全部已加载模块程序集扫描，重复注册导致解析到多份 Validator。
 - 【陷阱】**校验失败 ProblemDetails 与 `UserFriendlyException` 纯文本 400 是两种响应形状**——前端必须分别处理：前者解析 `errors` 字典做字段级提示，后者直接展示文本。
 - 校验对象是 Dto，不是 Command：端点收 Dto → 校验 → 构造 Command 发布；不要给 Command 写 Validator 并期待 `[AutoValidation]` 校验它（Command 不是端点参数）。
+- **校验分层硬性边界**：请求级基础合法性（非空/范围/长度/格式）**只**写在 Validator 里；领域工厂只断言真正的领域不变量（状态组合、业务规则），**不得重复基础检查**；需要查库的跨聚合校验（唯一性/引用存在性）归命令 Handler 的**单个** `ValidateAsync`（多字段合并一次查询，见[事件与 CQRS](./events-cqrs.md)边界第 13 条）。把基础校验写进实体工厂、或在 Handler 里为每个字段各写一个查库校验方法，都是反模式。
 - `[AutoValidation]` 不校验简单类型参数（`long`、`string` 查询串参数没有 Validator 机制）——简单参数合法性在端点内用 `UserFriendlyException` 兜底。
 - Validator 放在无模块类的类库中不会被扫描（见隐式行为）。
 - `CancellationToken`、`[FromServices]` 参数天然跳过校验；不要为它们写 Validator。

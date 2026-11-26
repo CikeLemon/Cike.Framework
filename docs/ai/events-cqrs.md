@@ -482,10 +482,30 @@ public class OrderService(ILocalEventBus? unused = null) : MinimalApiServiceBase
 3. **一个 Command/Query 可挂多个 handler**（事件语义，无 single-handler 约束）——无意中写两个同事件 handler 会都执行，纪律上保持一用例一 handler。
 4. **Query 不要进后台通道**——handler 异步执行时无人读 `Result`。
 5. `query.Result` 可能为 null（handler 未赋值或无 handler）——读取前判空。
-6. 命令参数校验发生在 HTTP 层（`[AutoValidation]` + FluentValidation 校验 Dto，见[HTTP 接口层](./http-api.md)）——Command 对象本身不自动校验。
+6. 命令参数校验发生在 HTTP 层（`[AutoValidation]` + FluentValidation 校验 Dto，见[HTTP 接口层](./http-api.md)）——Command 对象本身不自动校验。请求级基础合法性（非空/范围/长度/格式）**只**写在 Validator 里——实体工厂与 Handler 不得重复（分层边界见第 8、13 条）。
 7. **Command/Query/业务事件定义放 Application 层**，与 Handler 同层、一类型一文件（如 `Orders/Commands/CreateOrderCommand.cs`）；`Application.Contracts` 只放 Dto。契约层的价值是"可安全外发的数据形状"，用例消息与内部事件不是对外契约。
-8. **实体创建统一走静态工厂 `Create(...)`**——收原生类型/值对象，不把 Dto 传进领域层（Domain 不引用 Contracts）；本地不变量在工厂内断言，跨聚合查重（如编码唯一）在 Handler 先 `AnyAsync` 再调工厂。setter 封装程度与 Mapster 写侧映射**看项目取舍，不强制完整 DDD**（见[实体设计约定](./data-access.md)）；Mapster 读侧实体→Dto 投影无争议。
+8. **实体创建统一走静态工厂 `Create(...)`**——收原生类型/值对象，不把 Dto 传进领域层（Domain 不引用 Contracts）；工厂只断言**领域不变量**（状态组合合法性、业务规则），请求级基础合法性（非空/范围/长度/格式）归 FluentValidation Validator（第 6 条），**不得在工厂重复**；跨聚合查重（如编码唯一）等需查库的校验在 Handler 合并为**一个** `ValidateAsync`（第 13 条），校验通过再调工厂。setter 封装程度与 Mapster 写侧映射**看项目取舍，不强制完整 DDD**（见[实体设计约定](./data-access.md)）；Mapster 读侧实体→Dto 投影无争议。
 9. **读侧（实体→Dto）映射用 Mapster，不要手写 `MapToDto`**——`entity.Adapt<XxxDto>()` 按名字自动匹配，继承基类带来的 Id/审计字段也自动映射；非平凡映射（字段名不一致、值对象拆解、计算字段）在 Application 模块 `ConfigureServicesAsync` 注册 `TypeAdapterConfig<TEntity, TDto>.NewConfig().Map(...)`（示例见 CQRS sample 的 `Money→decimal`）。手写逐字段映射是样板代码且新增字段必漂移。
 10. **分页参数打包成一个对象，业务筛选参数平铺**——Query 形如 `GetOrderPagedListQuery(string? Keyword, long? BuyerId, PagedAndSortedResultRequest Paging)`：分页参数（Page/PageSize/Sorting）用 `PagedAndSortedResultRequest` 对象承载（筛选字段多时才改用继承它的 Dto），其余筛选参数直接平铺。端点用 `[AsParameters]` 把分页对象从查询串直接绑定（ASP.NET Core 原生机制），`new GetOrderPagedListQuery(keyword, buyerId, paging)` → Handler `GetPagedListAsync(query.Paging, ...)` → 仓储——中间任何一层不拆散、不重新 `new` 分页请求，同样的字段抄两遍，新增字段必漏。
 11. **分页列表查询命名必须带 PagedList**——`GetOrderPagedListQuery` / Handler 方法 `GetPagedListAsync` / 端点方法 `GetPagedListAsync`（路由 `/Orders/PagedList`），与仓储 `GetPagedListAsync` 对齐；`GetOrderListQuery` / `GetListAsync` 留给非分页的全量列表查询。筛选字段多而建的 Dto 同理命名 `GetOrderPagedListDto`。
 12. `Sorting` 来自前端时必须白名单校验（Dynamic LINQ 注入面，见[框架内核](./framework-core.md)反模式）。
+13. **需要查库的跨聚合校验合并为一个私有 `ValidateAsync`**——Create/Update 共用，**禁止**每个字段（编码、名称……）各写一个校验方法、各查一次库。规则：多个唯一性字段**合并一次查询**（命中标志在 SQL 端按列的排序规则比较，投影只回传布尔、不拉整行）；更新场景用 `excludeId` 排除自身；引用存在性用**一次 COUNT** 核对去重后的 Id 数量；失败抛 `UserFriendlyException`（HTTP 层转文本 400；业务校验失败别设 `RetryCount`）。软删过滤默认生效——软删后同名可重建是预期行为；并发窗口按项目 ADR 接受。
+
+    ```csharp
+    // Create/Update 共用：name + displayName 两个唯一性字段一次查询，标签引用一次 COUNT
+    private async Task ValidateAsync(string name, string displayName, List<long>? tagIds, long? excludeId, CancellationToken ct)
+    {
+        var duplicates = await modelRepository.ToListAsync(
+            modelRepository.GetQueryable()
+                .Where(x => x.Id != excludeId && (x.Name == name || x.DisplayName == displayName))
+                .Select(x => new { NameHit = x.Name == name, DisplayNameHit = x.DisplayName == displayName }), ct);
+
+        if (duplicates.Any(x => x.NameHit)) throw new UserFriendlyException($"模型名称「{name}」已存在。");
+        if (duplicates.Any(x => x.DisplayNameHit)) throw new UserFriendlyException($"显示名称「{displayName}」已存在。");
+
+        var tagIdList = (tagIds ?? []).Distinct().ToList();
+        if (tagIdList.Count > 0
+            && await tagRepository.GetCountAsync(x => tagIdList.Contains(x.Id), ct) != tagIdList.Count)
+            throw new UserFriendlyException("部分标签不存在，请刷新标签列表后再提交。");
+    }
+    ```
