@@ -38,6 +38,10 @@ public class CikeAspNetCoreMinimalApiModule : CikeModule
             options.SerializerOptions.Converters.Add(new LongToStringConverter());
             options.SerializerOptions.Converters.Add(new NullableLongToStringConverter());
             options.SerializerOptions.Converters.Add(new TrimStringJsonConverter());
+#if NET9_0_OR_GREATER
+            // 允许 $type 等元数据属性出现在对象非首位（多态反序列化时前端序列化器常把 $type 放在后面）
+            options.SerializerOptions.AllowOutOfOrderMetadataProperties = true;
+#endif
         });
     }
 

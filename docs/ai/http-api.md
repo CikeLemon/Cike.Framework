@@ -142,7 +142,7 @@ public class GlobalMinimalApiRouteOptions : MinimalApiRouteOptions
 
 **模块与全局行为**（模块类 `CikeAspNetCoreMinimalApiModule`，`[DependsOn(CikeMultiTenancyModule)]`）：
 
-- `ConfigureServicesAsync`：`AddHttpContextAccessor`；`TryAddSingleton<AutoValidationEndpointFilterProvider>()`；`Configure<GlobalMinimalApiRouteOptions>`（Prefix=api, Version=v1）；`AddObjectAccessor<IApplicationBuilder/IEndpointRouteBuilder>()`；注册 CORS 策略（名 `CikeAspNetCoreMinimalApiModule`）；`ConfigureHttpJsonOptions` 注册 `LongToStringConverter` + `NullableLongToStringConverter` + `TrimStringJsonConverter`（body 字符串读取侧自动 Trim）。
+- `ConfigureServicesAsync`：`AddHttpContextAccessor`；`TryAddSingleton<AutoValidationEndpointFilterProvider>()`；`Configure<GlobalMinimalApiRouteOptions>`（Prefix=api, Version=v1）；`AddObjectAccessor<IApplicationBuilder/IEndpointRouteBuilder>()`；注册 CORS 策略（名 `CikeAspNetCoreMinimalApiModule`）；`ConfigureHttpJsonOptions` 注册 `LongToStringConverter` + `NullableLongToStringConverter` + `TrimStringJsonConverter`（body 字符串读取侧自动 Trim），并开启 `AllowOutOfOrderMetadataProperties`（仅 net9.0+，见隐式行为）。
 - `InitializeAsync` 按序装配中间件：`UseMiddleware<BusinessExceptionMiddleware>()` → `UseCors(...)` → 若 `GlobalMinimalApiRouteOptions.EnabledAuthorization` 则 `UseAuthentication()` + `UseAuthorization()` → 扫描映射全部端点（总开关同时门控端点级 `RequireAuthorization`，见隐式行为）。
 - 端点扫描范围：`CikeModuleContainer.CikeModules` 全部模块的程序集中所有非抽象、继承 `MinimalApiServiceBase` 的类。
 
@@ -186,6 +186,7 @@ app.Run();
 - **业务异常转 400**：`BusinessExceptionMiddleware` 捕获 `BusinessException`（含子类 `UserFriendlyException`，异常体系见[框架内核](./framework-core.md)），按 `ex.LogLevel` 记日志后返回 `Results.BadRequest(ex.Message)`——**400 + 纯文本消息**（`text/plain`），非 ProblemDetails。其他异常不处理（走默认 500）。
 - **JSON long 序列化**（仅 HTTP 请求/响应的 `JsonOptions`，不影响其他序列化器）：响应中 `long` 与 `long?` 一律输出字符串（防前端精度丢失）；请求中 `long`/`long?` 接受字符串或数字字面量。**陷阱**：`long?` 为 null 时输出 `"0"` 而非 `null`（`NullableLongToStringConverter` 的 `value?.ToString() ?? "0"`）。
 - **JSON body 字符串自动 Trim**（同上 `JsonOptions` 作用域，`TrimStringJsonConverter`）：请求 body 的全部 `string` 属性反序列化时去除首尾空白（null 保持 null，纯空白串收敛为空串）——**业务代码不要再对 body 字段手写 `.Trim()`**；序列化写出侧原样输出。查询串绑定不经过 JSON、不受影响，也不应受影响：搜索关键词等查询值合法包含空格，**Handler 里不要对查询参数手写 `.Trim()`**。个别需保留首尾空白的字段（如密码），在属性上标注自定义 `[JsonConverter]` 退出全局行为。
+- **JSON 元数据属性可乱序**（同上 `JsonOptions` 作用域，仅 net9.0+ 生效，net8.0 目标不启用）：开启 `AllowOutOfOrderMetadataProperties`，允许 `$type` 等元数据属性出现在 JSON 对象的非首位——多态反序列化时，前端序列化器常把 `$type` 排在普通属性之后，默认行为会抛异常，开启后可正常绑定。
 - **CORS**：来源读配置节 `CorsDomains`（string 数组），缺省 `["localhost"]`；`AllowAnyHeader` + `AllowAnyMethod` + `AllowCredentials` + `SetPreflightMaxAge(2520 秒)`。
 - **方法名大小写不对称**：动词前缀匹配忽略大小写，但方法段剥离用 Ordinal——非 PascalCase 命名（如 `getOrderAsync`）会命中 GET 但路由段保留 `getOrder`。
 - **类级过滤器元数据**：类级 `EndpointFilterBaseAttribute`（未被方法级同类型覆盖时）同时写入端点 metadata（`WithMetadata`）。
