@@ -1,0 +1,14 @@
+global using Cike.AspNetCore.MinimalAPIs;
+global using Cike.AspNetCore.MinimalAPIs.Extensions;
+global using Cike.AspNetCore.MinimalAPIs.Options;
+global using Cike.AspNetCore.MinimalAPIs.Tests.Infrastructure;
+global using Cike.Core.Modularity;
+global using Microsoft.AspNetCore.Builder;
+global using Microsoft.AspNetCore.Hosting;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
+global using System.Net;
+global using System.Text;
+global using Xunit;

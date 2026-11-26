@@ -74,6 +74,7 @@ public class CikeAspNetCoreMinimalApiModule : CikeModule
             serviceName = serviceName.RemovePostFix(StringComparison.CurrentCultureIgnoreCase, instance.RouteOptions.IgnoredUrlSuffixesInServiceNames?.ToArray() ?? globalRouteOptions.IgnoredUrlSuffixesInServiceNames.ToArray());
             serviceName = globalRouteOptions.GetPluralizationName(serviceName);
             var classEndpointFilters = item.GetCustomAttributes<EndpointFilterBaseAttribute>(true).ToList();
+            var classDisableAntiforgery = item.GetCustomAttribute<DisableAntiforgeryAttribute>(true) is not null;
 
             foreach (var methodInfo in GetMethodInfos(item))
             {
@@ -114,6 +115,12 @@ public class CikeAspNetCoreMinimalApiModule : CikeModule
                 }
 
                 var routeBuilder = builder.MapMethods(route, httpMethods, CreateDelegate(methodInfo, instance));
+                // .NET 8+ 会给带表单参数（IFormFile 等）的端点自动加 antiforgery 要求，管道未挂 UseAntiforgery() 时请求必 500；
+                // [DisableAntiforgery]（方法级/类级）= 端点级 opt-out，等价于原生 .DisableAntiforgery()
+                if (classDisableAntiforgery || methodInfo.GetCustomAttribute<DisableAntiforgeryAttribute>(true) is not null)
+                {
+                    routeBuilder.DisableAntiforgery();
+                }
                 if (globalRouteOptions.EnabledAuthorization && instance.RouteOptions.EnabledAuthorization)
                 {
                     (instance.RouteOptions.RouteHandlerBuilder ?? globalRouteOptions.RouteHandlerBuilder)?.Invoke(routeBuilder);

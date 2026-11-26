@@ -91,6 +91,11 @@ public class MinimalApiRouteAttribute : Attribute
 // 排除方法，不生成端点（System.ComponentModel.Mvc 的 NonActionAttribute）
 [NonAction]
 
+// 关闭表单参数端点的 antiforgery 要求（方法级=单端点，类级=该服务全部端点，命中其一即生效）
+// 映射时被框架识别并对该端点调用 .DisableAntiforgery()；背景与平台行为见「隐式行为」
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
+public sealed class DisableAntiforgeryAttribute : Attribute
+
 // 开启参数自动校验（类级=全部方法，方法级覆盖类级；详见 FluentValidation 章）
 public class AutoValidationAttribute : EndpointFilterBaseAttribute<AutoValidationEndpointFilterProvider>
 {
@@ -183,6 +188,7 @@ app.Run();
 - **CORS**：来源读配置节 `CorsDomains`（string 数组），缺省 `["localhost"]`；`AllowAnyHeader` + `AllowAnyMethod` + `AllowCredentials` + `SetPreflightMaxAge(2520 秒)`。
 - **方法名大小写不对称**：动词前缀匹配忽略大小写，但方法段剥离用 Ordinal——非 PascalCase 命名（如 `getOrderAsync`）会命中 GET 但路由段保留 `getOrder`。
 - **类级过滤器元数据**：类级 `EndpointFilterBaseAttribute`（未被方法级同类型覆盖时）同时写入端点 metadata（`WithMetadata`）。
+- **表单端点的 antiforgery 要求（.NET 8+ 平台行为）与豁免**：带表单参数（`IFormFile`、`[FromForm]` 等）的 Minimal API 端点会被平台自动加上 antiforgery 元数据（`IAntiforgeryMetadata.RequiresValidation=true`）；本框架管道**不挂** `app.UseAntiforgery()`，因此这类端点请求时**必 500**（`InvalidOperationException: ... contains anti-forgery metadata, but a middleware was not found that supports anti-forgery`）。豁免方式：`[DisableAntiforgery]` 标在端点方法（单端点）或端点类（该服务全部端点）上，框架映射时对命中端点调用 `.DisableAntiforgery()`（在端点元数据尾部追加 `RequiresValidation=false`，last-wins 生效）。**MVC 的 `[IgnoreAntiforgeryToken]` 对 Minimal API 无效**：它只实现 MVC 过滤器接口（`IAntiforgeryPolicy`/`IFilterMetadata`），不实现 Minimal API 检查的 `IAntiforgeryMetadata`，即使随方法特性进入端点元数据也被忽略（net8~net10 行为一致）。需要真实 antiforgery token 校验的浏览器 Cookie 会话场景，宿主须在自己的模块 `InitializeAsync` 中、依赖框架认证中间件之后自行 `app.UseAntiforgery()`。
 
 ### 示例
 
@@ -250,6 +256,20 @@ public class ReportService : MinimalApiServiceBase
 }
 ```
 
+文件上传端点（带表单参数必须 `[DisableAntiforgery]` 豁免，否则请求必 500，见隐式行为）：
+
+```csharp
+public class FileService : MinimalApiServiceBase
+{
+    [DisableAntiforgery]                                    // 方法级豁免；整类都是上传端点时可标在类上
+    public async Task<Ok<string>> PostUploadAsync(IFormFile file, CancellationToken ct = default)
+    {
+        // ... 保存文件
+        return TypedResults.Ok(file.FileName);              // POST /api/v1/Files/Upload
+    }
+}
+```
+
 ### 配置
 
 全局路由选项（宿主模块 `ConfigureServicesAsync`）：
@@ -303,6 +323,7 @@ public class HostModule : CikeModule { }
 ### 边界与反模式
 
 - 【陷阱】**端点默认全部 `RequireAuthorization`**：没配认证时请求失败（未注册认证方案通常直接 500 `InvalidOperationException`，配置了 JWT 但缺 token 才是 401）。开发期一步关闭：全局 `Configure<GlobalMinimalApiRouteOptions>(o => o.EnabledAuthorization = false)`——总开关同时控制中间件与端点元数据。只想让个别服务免认证时，在全局开启的前提下于端点类构造函数设 `RouteOptions.EnabledAuthorization = false`。
+- 【陷阱】**带表单参数的端点不豁免必 500**：.NET 8 起平台自动对 `IFormFile`/`[FromForm]` 端点要求 antiforgery 中间件，本框架不挂 `UseAntiforgery()`——此类端点必须标 `[DisableAntiforgery]`（方法级/类级）。MVC 的 `[IgnoreAntiforgeryToken]` 是过滤器特性，对 Minimal API 完全无效（进了端点元数据也不被检查），不要标了它期待报错消失。
 - 【陷阱】**Singleton 端点类不能构造注入 Scoped 服务**（仓储、DbContext、EventBus）：开发期（作用域校验）抛 `InvalidOperationException`，生产期形成 captive dependency。一律改为方法参数 `[FromServices]` 注入。
 - 【陷阱】**两种 400 响应形状并存**，前端分别处理：`[AutoValidation]` 校验失败 → `application/problem+json` ProblemDetails（`{"errors": {属性: [消息数组]}}`）；`UserFriendlyException`/`BusinessException` → `text/plain` 纯文本消息。详见 FluentValidation 章。
 - 不要手写 `app.MapGet/MapPost`、`AddControllers`——继承 `MinimalApiServiceBase` 走命名约定。

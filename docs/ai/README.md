@@ -114,6 +114,7 @@ Domain ──→ Cike.Data.Domain                                // 实体基类
 | 15 | Validator 自动注册 | 依赖 `CikeFluentValidationModule`：全部已加载模块程序集的 `AbstractValidator<T>` 自动注册 | HTTP 接口层 |
 | 16 | 缓存 key 格式化 | 默认 `TypeName` 模式：实际 key = `{类型简单名}.{key}`（如 `User.42`，不含命名空间）；L2 Redis 端为 GZip 压缩的 Hash，redis-cli 不可直读 | 缓存 |
 | 17 | 端点默认要求认证 | 全局 `GlobalMinimalApiRouteOptions.EnabledAuthorization`（默认 true）是**总开关**：关 → 不挂认证中间件且所有端点不加 `RequireAuthorization`；开 → 端点级 `RouteOptions.EnabledAuthorization`（默认 true）逐服务决定是否加；未注册认证方案时是 500 而非 401 | HTTP 接口层 |
+| 18 | 表单端点 antiforgery 豁免 | .NET 8 起带表单参数（`IFormFile`、`[FromForm]`）的端点被平台自动要求 antiforgery 中间件，框架管道不挂 `UseAntiforgery()` → 此类端点请求时必 500；标 `[DisableAntiforgery]`（方法级/类级）后框架映射时对该端点调用 `.DisableAntiforgery()` 豁免；MVC 的 `[IgnoreAntiforgeryToken]` 对 Minimal API 无效 | HTTP 接口层 |
 
 ## 5. 跨模块最佳实践与反模式
 
